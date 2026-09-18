@@ -1,208 +1,155 @@
-# 백화점 메인페이지
+# 🏬 백화점 온라인 쇼핑몰 (Reactive Dept-Mall)
 
-React와 TypeScript를 사용한 현대적인 백화점 웹사이트입니다.
+## 🎀 프로젝트 소개
 
-## 주요 기능
+🏷 **프로젝트 명 : 백화점 온라인 쇼핑몰 (Reactive Dept-Mall)**
 
-### 🛍️ 상품 관리
-- 상품 목록 조회 및 상세 정보
-- 카테고리별 상품 분류
-- 상품 검색 및 필터링
-- 장바구니 및 위시리스트
+🗓️ **개발 기간 : 8/11(월) ~ 8/22(금) (총 2주)**
 
-### 🔍 **고급 검색 시스템 (신규 추가)**
-- **실시간 검색 자동완성**: 상품명, 브랜드 기반 자동완성
-- **검색 제안**: 사용자 입력에 따른 관련 검색어 제안
-- **인기 검색어**: 실제 검색 로그 기반 인기 검색어 표시
-- **연관 검색어**: 유사한 검색어 추천
-- **사용자 검색 히스토리**: 개인별 최근 검색어 관리
-- **고급 필터링**: 가격 범위, 브랜드, 카테고리별 필터링
-- **정렬 옵션**: 인기순, 가격순, 이름순, 최신순
-- **검색 통계**: 검색어별 통계 정보 표시
-- **검색 로그**: 사용자 검색 행동 분석 및 개선
+👥 **TEAM 핑꾸공쥬 : 박소희(팀장), 최윤아, 곽승훈, 최서희**
 
-### 👤 사용자 관리
-- 회원가입 및 로그인
-- 마이페이지
-- 주문 내역 조회
-- 쿠폰 관리
+🧑‍🏫 **멘토 : 김승기**
 
-### 💳 결제 시스템
-- Toss Payments 연동
-- 주문 처리 및 추적
+---
 
-## 기술 스택
+### 🥰 서비스 구경 바로가기
 
-- **Frontend**: React 18, TypeScript, Tailwind CSS
-- **Backend**: Supabase (PostgreSQL)
-- **상태 관리**: React Context API
-- **라우팅**: React Router v6
-- **빌드 도구**: Vite
+🖥 **서비스 주소 : https://shopping-mall-website.vercel.app**
 
-## 설치 및 실행
+---
 
-### 1. 의존성 설치
-```bash
-npm install
+### ✅ 기획 배경
+
+> 백화점의 다양한 브랜드 경험과 쇼핑 편의성을 온라인 환경에서도 그대로 느낄 수 있다면?
+
+오프라인 백화점이 주는 프리미엄 쇼핑 경험을 웹으로 옮기고, 상품 검색·필터링부터 결제, 관리자 운영까지 한 번에 아우르는 서비스를 만들고자 기획했다.
+
+### ✅ 서비스 소개
+
+> **상품 검색·필터링, 장바구니·결제, 관리자 페이지까지 갖춘 온라인 백화점 쇼핑몰**
+
+- 실시간 자동완성 검색과 개인화 검색 히스토리로 원하는 상품을 빠르게 탐색
+- 3단계 계층형 카테고리로 직관적인 상품 분류
+- Toss Payments 연동으로 안전한 결제 처리
+- 본사/입점업체를 위한 이중 관리자 시스템 제공
+
+### 👥 서비스 대상
+
+- 온라인에서도 백화점급 쇼핑 경험을 원하는 고객
+- 여러 브랜드를 한 플랫폼에서 관리하고 싶은 입점업체·본사 운영자
+
+---
+
+## 💌 서비스 화면 및 기능 소개
+
+### ✅ 쇼핑몰 페이지
+
+- **검색 시스템** : 실시간 자동완성, 인기 검색어, 개인화 검색 히스토리
+- **3단계 카테고리** : 계층형 상품 분류로 직관적인 상품 탐색
+- **마이페이지** : 주문 내역, 배송 조회, 쿠폰 관리, 문의 내역 통합 관리
+- **안전한 결제** : Toss Payments 연동으로 간편하고 안전한 결제 처리
+
+`(쇼핑몰 메인/검색/상세 페이지 스크린샷 추가 예정)`
+
+### ✅ 관리자 페이지 (본사 / 입점사)
+
+- **실시간 지표** : 주문/매출/고객/재고 현황을 한눈에 모니터링
+- **상품 관리** : 체계적인 상품코드(PRD-001~005)로 브랜드별 상품 등록 및 재고 관리
+- **입점업체 관리** : TOP 입점사 매출 순위 및 성장률 실시간 추적
+- **빠른 작업** : 상품등록, 주문관리, 고객문의, 통계조회 원클릭 처리
+
+`(본사/입점사 대시보드 스크린샷 추가 예정)`
+
+---
+
+## 🚀 핵심 기능
+
+| 기능 | 설명 |
+| --- | --- |
+| 01. 고급 검색 시스템 | 실시간 자동완성, 인기 검색어, 연관 검색어, 개인화 검색 히스토리, 고급 필터링 |
+| 02. 상품 관리 | 3단계 계층형 카테고리, 상품 상세 정보, 장바구니, 위시리스트, 최근 본 상품 |
+| 03. 사용자 시스템 | 회원가입/로그인, 마이페이지, 주문 내역 조회, 쿠폰 관리, 문의 시스템 |
+| 04. 결제 & 주문 | Toss Payments 연동, 주문 처리 및 추적, 결제 성공/실패 처리 |
+| 05. 이중 관리자 시스템 | 본사 관리자(전체 시스템 관리), 입점업체 관리자(개별 상품 관리) |
+| 06. 데이터 분석 | 검색 로그 기반 트렌드 분석, 매출 및 상품 통계, 사용자 행동 패턴 분석 |
+
+모듈화된 구조, 반응형 디자인, 실시간 데이터 업데이트, RLS 기반 보안, 서버리스 아키텍처로 확장성과 안정성을 동시에 확보했다.
+
+---
+
+## 🛠 기술 스택
+
+### Frontend
+
+![](https://img.shields.io/badge/React_18-61DAFB?style=flat-square&logo=react&logoColor=black)
+![](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
+![](https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white)
+![](https://img.shields.io/badge/React_Router-CA4245?style=flat-square&logo=reactrouter&logoColor=white)
+
+### Backend & Database
+
+![](https://img.shields.io/badge/Supabase-3ECF8E?style=flat-square&logo=supabase&logoColor=white)
+![](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+
+### 외부 서비스 & 상태 관리
+
+![](https://img.shields.io/badge/Toss_Payments-0064FF?style=flat-square&logo=tosspayments&logoColor=white)
+![](https://img.shields.io/badge/React_Query-FF4154?style=flat-square&logo=reactquery&logoColor=white)
+![](https://img.shields.io/badge/ESLint-4B32C3?style=flat-square&logo=eslint&logoColor=white)
+
+> Context API로 장바구니·사용자·위시리스트 등 전역 상태를 관리하고, Row Level Security(RLS)로 데이터 보안과 접근 제어를 구현했다.
+
+---
+
+## 🗂 프로젝트 구조
+
+```
+└─📦 shopping-mall-website
+  └─📂 src
+    ├─📂 components/
+    │  ├─📜 Header.tsx
+    │  ├─📜 Footer.tsx
+    │  └─📜 SearchComponent.ts
+    ├─📂 pages/
+    │  ├─📜 HomePage.tsx
+    │  ├─📜 SearchPage.tsx
+    │  └─📜 ProductDetailPage.tsx
+    ├─📂 services/            # 상품/검색/결제 API 서비스
+    ├─📂 context/             # Context API (장바구니, 사용자)
+    ├─📂 admin/
+    │  ├─📂 hq/               # 본사 관리자 시스템
+    │  └─📂 merchant/         # 입점업체 관리자 시스템
+    ├─📂 types/
+    └─📂 hooks/
 ```
 
-### 2. 환경 변수 설정
-`.env` 파일을 생성하고 Supabase 설정을 추가하세요:
-```env
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
+---
 
-### 3. 데이터베이스 설정
-Supabase에서 다음 SQL 스크립트를 실행하여 검색 기능을 위한 테이블을 생성하세요:
-```sql
--- database_setup.sql 파일의 내용을 실행
-```
+## 📜 프로젝트 산출물
 
-### 4. 개발 서버 실행
-```bash
-npm run dev
-```
+### 완료보고서
 
-## 검색 기능 상세 설명
+전체 시스템 구성, 상세 구현 내용, 개별 후기까지 정리한 문서입니다.
 
-### 🔍 검색 컴포넌트 구조
-```
-src/
-├── components/
-│   ├── SearchComponent.tsx    # 메인 검색 컴포넌트
-│   └── Header.tsx            # 헤더 검색바 (자동완성 포함)
-├── pages/
-│   └── SearchPage.tsx        # 검색 결과 페이지
-├── services/
-│   ├── productService.ts     # 상품 검색 서비스
-│   └── searchService.ts      # 검색 로그 및 통계 서비스
-└── types/
-    └── index.ts              # 타입 정의
-```
+👉 [`완료보고서.md`](./완료보고서.md)
 
-### 🚀 주요 검색 기능
+---
 
-#### 1. 실시간 자동완성
-- 사용자 입력 시 2글자 이상부터 자동완성 시작
-- 상품명, 브랜드 기반 제안
-- 검색 로그 기반 연관 검색어 제안
+## 💬 자체 평가
 
-#### 2. 검색 제안 시스템
-- **검색 제안**: 상품명과 브랜드에서 일치하는 항목
-- **연관 검색어**: 유사한 검색어 추천
-- **사용자 히스토리**: 개인별 최근 검색어
-- **인기 검색어**: 전체 사용자 검색 통계
+**완성도 평가 : 9/10점** — 계획된 핵심 기능들이 모두 구현되었으며, 특히 고급 검색 시스템과 이중 관리자 구조에서 목표를 달성했다.
 
-#### 3. 고급 필터링
-- 가격 범위 설정 (최소/최대)
-- 브랜드별 필터링
-- 카테고리별 필터링
-- 정렬 옵션 (인기순, 가격순, 이름순, 최신순)
+- **잘한 부분** : 체계적인 역할 분담으로 효율적인 협업 진행
+- **아쉬운 점** : 사용자 테스트 단계를 충분히 거치지 못해 실제 사용성 검증 부족
+- **추후 개선할 점** : 이미지 lazy loading 및 검색 결과 페이지네이션 적용, 웹 접근성 가이드라인 준수, 단위/통합 테스트 강화
+- **느낀 점** : React 18과 TypeScript를 활용한 대규모 프로젝트 경험, 체계적인 Git 관리와 코드 리뷰를 통한 팀워크 향상, 실제 서비스 수준의 기획부터 배포까지 경험
 
-#### 4. 검색 결과 표시
-- 그리드 형태의 상품 카드
-- 상품 이미지, 이름, 가격, 브랜드 정보
-- 판매량 및 재고 정보
-- 클릭 시 상품 상세 페이지로 이동
+---
 
-#### 5. 검색 통계 및 분석
-- 검색어별 총 검색 횟수
-- 최근 1주일간 검색 횟수
-- 사용자별 검색 패턴 분석
+## 💙 팀원 소개
 
-### 📊 데이터베이스 구조
-
-#### 검색 로그 테이블 (`search_logs`)
-- 사용자 검색 기록 저장
-- 검색어, 사용자 ID, 시간 정보
-- IP 주소 및 사용자 에이전트 정보
-
-#### 검색 통계 테이블 (`search_stats`)
-- 검색어별 통계 정보
-- 총 검색 횟수, 최근 검색 횟수
-- 자동 업데이트 트리거
-
-#### 인기 검색어 테이블 (`popular_searches`)
-- 인기 검색어 캐싱
-- 30일간 검색 통계 기반
-
-### 🔧 사용법
-
-#### 기본 검색
-1. 헤더의 검색창에 검색어 입력
-2. 자동완성 제안 확인
-3. Enter 키 또는 검색 버튼 클릭
-
-#### 고급 검색
-1. `/search` 페이지에서 검색 실행
-2. 필터 버튼 클릭하여 필터 패널 열기
-3. 가격 범위, 브랜드 등 설정
-4. 정렬 옵션 선택
-
-#### 검색 제안 활용
-- 검색창 포커스 시 제안 목록 표시
-- 검색 제안, 연관 검색어, 인기 검색어 확인
-- 클릭하여 빠른 검색 실행
-
-### 📈 성능 최적화
-
-- 데이터베이스 인덱스 최적화
-- 검색 결과 캐싱
-- 비동기 검색 제안 로딩
-- 검색 로그 배치 처리
-
-### 🔒 보안
-
-- Row Level Security (RLS) 적용
-- 사용자별 검색 로그 접근 제한
-- 인증된 사용자만 통계 업데이트 가능
-
-## 라우팅
-
-- `/` - 홈페이지
-- `/search` - 검색 결과 페이지
-- `/product/:id` - 상품 상세 페이지
-- `/cart` - 장바구니
-- `/login` - 로그인
-- `/signup` - 회원가입
-- `/mypage` - 마이페이지
-
-## 개발 가이드
-
-### 컴포넌트 추가
-새로운 컴포넌트는 `src/components/` 디렉토리에 추가하세요.
-
-### 페이지 추가
-새로운 페이지는 `src/pages/` 디렉토리에 추가하고 `App.tsx`에 라우트를 등록하세요.
-
-### 서비스 추가
-새로운 API 서비스는 `src/services/` 디렉토리에 추가하세요.
-
-## 배포
-
-### 빌드
-```bash
-npm run build
-```
-
-### 프리뷰
-```bash
-npm run preview
-```
-
-## 기여
-
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 라이선스
-
-이 프로젝트는 MIT 라이선스 하에 배포됩니다.
-
-## 문의
-
-프로젝트에 대한 문의사항이 있으시면 이슈를 생성해 주세요."# shopping-mall-website" 
+| 박소희 (팀장) | 최윤아 | 곽승훈 | 최서희 |
+| --- | --- | --- | --- |
+| UI 컴포넌트 및 주요 페이지 구현 | 외부 API 연동 및 결제 시스템 | 데이터베이스 설계 및 연동 | 사용자 서비스 구현 및 보안 |
+| 사용자 인터페이스 페이지 구현 | 관리자 시스템 구현 | 공통 시스템 및 데이터 처리 | 관리자 시스템 구현 |
