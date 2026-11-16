@@ -137,7 +137,7 @@ const RecentViewPage: React.FC = () => {
       <UserInfoModal
         isOpen={showUserInfoModal}
         onClose={() => setShowUserInfoModal(false)}
-        onUpdate={handleUserUpdate}
+        onUserUpdate={handleUserUpdate}
         user={user}
       />
     </div>
