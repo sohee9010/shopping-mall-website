@@ -10,7 +10,7 @@ interface CouponContextType {
   userCouponUsages: CouponUsage[]
   selectCoupon: (coupon: Coupon | null) => void
   clearSelectedCoupon: () => void
-  useCoupon: (couponId: string, orderId: string, discountAmount: number) => void
+  applyCoupon: (couponId: string, orderId: string, discountAmount: number) => void
   getAvailableCoupons: (totalAmount: number) => Coupon[]
   calculateDiscount: (coupon: Coupon, totalAmount: number) => number
   addTestCoupons: () => void
@@ -74,7 +74,7 @@ export const CouponProvider: React.FC<CouponProviderProps> = ({ children }) => {
   }
 
   // 쿠폰 사용 (결제 완료 후 호출)
-  const useCoupon = (couponId: string, orderId: string, discountAmount: number) => {
+  const applyCoupon = (couponId: string, orderId: string, discountAmount: number) => {
     if (!currentUser) return
 
     // 쿠폰 상태 업데이트
@@ -211,7 +211,7 @@ export const CouponProvider: React.FC<CouponProviderProps> = ({ children }) => {
     userCouponUsages,
     selectCoupon,
     clearSelectedCoupon,
-    useCoupon,
+    applyCoupon,
     getAvailableCoupons,
     calculateDiscount,
     addTestCoupons,
