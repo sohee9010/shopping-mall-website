@@ -54,8 +54,8 @@ const InquiryDetailPage: React.FC = () => {
               smsNotification: inquiryData.sms_notification || false,
               replyContent: inquiryData.reply_content,
               replyDate: inquiryData.reply_date,
-              productName: inquiryData.product_name,
-              productBrand: inquiryData.product_brand,
+              productName: inquiryData.product_name ?? undefined,
+              productBrand: inquiryData.product_brand ?? undefined,
               priority: inquiryData.priority
             }
             

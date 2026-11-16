@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { FiPlus, FiSearch, FiFileText } from 'react-icons/fi'
 import { useUser } from '../context/UserContext'
 import { getUserInquiries } from '../services/inquiryService'
-import { getUserOrders } from '../services/orderService'
+import { getUserOrders, Order } from '../services/orderService'
 
 interface Inquiry {
   id: string
@@ -14,21 +14,6 @@ interface Inquiry {
   replyDate?: string
   content: string
   replyContent?: string
-}
-
-interface Order {
-  id: string
-  user_id: string
-  order_date: string
-  status: string
-  total_amount: number
-  items: Array<{
-    product_id: number
-    name: string
-    price: number
-    quantity: number
-    image: string
-  }>
 }
 
 const InquiryHistoryPage: React.FC = () => {

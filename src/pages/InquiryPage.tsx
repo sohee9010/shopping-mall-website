@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { FiMessageSquare, FiFileText, FiX, FiShoppingBag } from 'react-icons/fi'
 import { useUser } from '../context/UserContext'
-import { getUserOrders } from '../services/orderService'
+import { getUserOrders, Order } from '../services/orderService'
 import { createInquiry } from '../services/inquiryService'
 
 interface InquiryForm {
@@ -19,24 +19,6 @@ interface InquiryForm {
   phone3: string
   smsNotification: boolean
   noProduct: boolean
-}
-
-interface Order {
-  id: string
-  user_id: string
-  order_date: string
-  status: string
-  total_amount: number
-  items: Array<{
-    product_id: number
-    name: string
-    price: number
-    quantity: number
-    image: string
-    size?: string
-    color?: string
-    brand?: string
-  }>
 }
 
 const InquiryPage: React.FC = () => {
@@ -263,7 +245,7 @@ const InquiryPage: React.FC = () => {
     })
     setShowOrderModal(false)
     // 선택된 주문 정보를 문의 상품 필드에 설정
-    handleInputChange('productSearch', order.id)
+    handleInputChange('productSearch', order.id ?? '')
   }
 
   const formatDate = (dateString: string) => {
