@@ -173,7 +173,7 @@ const WishlistPage: React.FC = () => {
                       </Link>
                       <button
                         className="absolute top-2 right-2 w-8 h-8 bg-white border border-gray-300 rounded-full flex items-center justify-center text-gray-600 hover:bg-red-500 hover:text-white hover:border-red-500 transition-colors duration-300"
-                        onClick={() => removeFromWishlist(String(item.id))}
+                        onClick={() => removeFromWishlist(item.id)}
                         title="찜 해제"
                       >
                         ×

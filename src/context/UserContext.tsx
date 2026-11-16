@@ -8,6 +8,7 @@ export interface User {
   email: string
   phone?: string
   address?: string
+  grade?: string // 회원 등급 (FAMILY, SILVER, GOLD, DIAMOND, PRESTIGE VIP). 배송비 무료 여부 판단에 사용
 }
 
 interface UserContextType {

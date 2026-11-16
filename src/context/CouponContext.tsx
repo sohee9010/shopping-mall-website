@@ -8,7 +8,7 @@ interface CouponContextType {
   usedCoupons: Coupon[]
   userCoupons: Coupon[]
   userCouponUsages: CouponUsage[]
-  selectCoupon: (coupon: Coupon) => void
+  selectCoupon: (coupon: Coupon | null) => void
   clearSelectedCoupon: () => void
   useCoupon: (couponId: string, orderId: string, discountAmount: number) => void
   getAvailableCoupons: (totalAmount: number) => Coupon[]
@@ -64,7 +64,7 @@ export const CouponProvider: React.FC<CouponProviderProps> = ({ children }) => {
   }, [currentUser])
 
   // 쿠폰 선택
-  const selectCoupon = (coupon: Coupon) => {
+  const selectCoupon = (coupon: Coupon | null) => {
     setSelectedCoupon(coupon)
   }
 

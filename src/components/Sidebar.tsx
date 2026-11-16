@@ -1,6 +1,13 @@
 import React from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
+interface SidebarMenuItem {
+  label: string
+  link: string
+  active: boolean
+  onClick?: () => void // 있으면 링크 대신 버튼으로 렌더링
+}
+
 interface SidebarProps {
   currentPage?: string
   onPersonalInfoClick?: (menuItem: string) => void
@@ -10,7 +17,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPersonalInfoClick }) => {
   const location = useLocation()
   const navigate = useNavigate()
 
-  const sidebarMenus = [
+  const sidebarMenus: { title: string; items: SidebarMenuItem[] }[] = [
     {
       title: '주문현황',
       items: [
