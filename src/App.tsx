@@ -21,7 +21,6 @@ import SignupPage from './pages/SignupPage'
 import FindIdPage from './pages/FindIdPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
-import TestPage from './pages/TestPage'
 import SearchPage from './pages/SearchPage'
 
 import MyPage from './pages/MyPage'
@@ -147,7 +146,6 @@ const AppContent: React.FC = () => {
             <Route path="/wishlist" element={<WishlistPage />} />
             <Route path="/order-tracking" element={<OrderTrackingPage />} />
             <Route path="/coupon" element={<CouponPage />} />
-            <Route path="/test" element={<TestPage />} />
             <Route path="/search" element={<SearchPage />} />
             {/* 문의 관련 라우트 추가 */}
             <Route path="/inquiry" element={<InquiryPage />} />
