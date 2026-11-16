@@ -224,52 +224,11 @@ const OrderTracking: React.FC = () => {
                             <h1 className="text-3xl font-bold text-gray-800 m-0 mb-3">주문확인 / 배송조회</h1>
                             <p className="text-base text-gray-600 m-0">고객님의 주문내역을 확인하실 수 있습니다.</p>
                             
-                            {/* 테스트용 주문 데이터 생성 버튼 */}
                             <div className="mt-4">
-                                <button 
-                                    onClick={() => {
-                                        if (currentUser) {
-                                            const testOrder: Order = {
-                                                id: `TEST_ORDER_${Date.now()}`,
-                                                user_id: currentUser.id || currentUser.email || currentUser.name,
-                                                order_date: new Date().toISOString(),
-                                                status: '결제완료',
-                                                total_amount: 50000,
-                                                payment_method: '카드',
-                                                payment_key: `TEST_PAYMENT_${Date.now()}`,
-                                                items: [
-                                                    {
-                                                        product_id: 999,
-                                                        name: '테스트 상품',
-                                                        price: 50000,
-                                                        quantity: 1,
-                                                        image: '/placeholder-image.jpg'
-                                                    }
-                                                ],
-                                                shipping_address: '테스트 주소',
-                                                recipient_name: currentUser.name,
-                                                recipient_phone: '010-1234-5678',
-                                                created_at: new Date().toISOString(),
-                                                updated_at: new Date().toISOString()
-                                            }
-                                            
-                                            // localStorage 제거
-                                            // const existingOrders = JSON.parse(localStorage.getItem('orders') || '[]')
-                                            // const updatedOrders = [...existingOrders, testOrder]
-                                            // localStorage.setItem('orders', JSON.stringify(updatedOrders))
-                                            
-                                            alert('테스트 주문이 추가되었습니다! 페이지를 새로고침하세요.')
-                                        }
-                                    }}
-                                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors"
-                                >
-                                    테스트 주문 추가
-                                </button>
-                                
                                 {/* 중복 데이터 정리 버튼 */}
-                                <button 
+                                <button
                                     onClick={cleanupDuplicateOrders}
-                                    className="ml-2 bg-orange-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-orange-700 transition-colors"
+                                    className="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-orange-700 transition-colors"
                                 >
                                     중복 데이터 정리
                                 </button>
