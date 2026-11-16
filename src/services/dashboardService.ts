@@ -171,7 +171,7 @@ export const getMerchantRecentOrders = async (merchantBrand: string, limit: numb
         
         merchantOrders.push({
           id: order.id,
-          customer_name: order.users?.name || '알 수 없음',
+          customer_name: (order.users as unknown as { name: string } | null)?.name || '알 수 없음', // N:1 조인이라 실제로는 객체
           product_name: merchantItem?.name || '상품 정보 없음',
           total_amount: merchantItem ? merchantItem.price * merchantItem.quantity : 0,
           status: order.status,
