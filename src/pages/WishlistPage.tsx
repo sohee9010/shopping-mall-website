@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useWishlistContext } from '../context/WishlistContext'
 import { useUser } from '../context/UserContext'
 import Sidebar from '../components/Sidebar'
@@ -12,7 +12,6 @@ const WishlistPage: React.FC = () => {
   const [user, setUser] = useState<any>(null)
   const { wishlistItems, removeFromWishlist, getWishlistCount, clearWishlist } = useWishlistContext()
   const { currentUser } = useUser()
-  const navigate = useNavigate()
 
   useEffect(() => {
     if (currentUser) {

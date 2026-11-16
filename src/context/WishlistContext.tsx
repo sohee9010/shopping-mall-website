@@ -5,7 +5,6 @@ import {
   getUserWishlist, 
   addToWishlist as addToWishlistDB, 
   removeFromWishlist as removeFromWishlistDB,
-  isInWishlist as isInWishlistDB,
   getWishlistCount as getWishlistCountDB,
   clearWishlist as clearWishlistDB
 } from '../services/wishlistService'

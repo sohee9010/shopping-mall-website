@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react'
 import { supabase } from '../services/supabase'
 
 const TestPage: React.FC = () => {
-  const [categories, setCategories] = useState<any[]>([])
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {

@@ -5,13 +5,13 @@ import { useCartContext } from '../context/CartContext'
 import { useCouponContext } from '../context/CouponContext'
 import { useUser } from '../context/UserContext'
 import { tossPaymentsService, PaymentData } from '../services/tossPayments'
-import { createOrder, Order, OrderItem } from '../services/orderService'
+import { Order, OrderItem } from '../services/orderService'
 
 const CheckoutPage: React.FC = () => {
     const location = useLocation()
     const navigate = useNavigate()
     const { cartItems, selectedItems, getSelectedTotalPrice, formatPrice } = useCartContext()
-    const { selectedCoupon, selectCoupon, useCoupon, getAvailableCoupons, calculateDiscount, clearSelectedCoupon } = useCouponContext()
+    const { selectedCoupon, selectCoupon, getAvailableCoupons, calculateDiscount } = useCouponContext()
     const { currentUser } = useUser()
 
     const [customerInfo, setCustomerInfo] = useState({
@@ -118,7 +118,7 @@ const CheckoutPage: React.FC = () => {
     }
 
     // 주문 데이터 생성 함수 (로그인 사용자 + 비회원 지원)
-    const createOrderData = async (orderId: string): Promise<Omit<Order, 'id' | 'created_at' | 'updated_at'> | null> => {
+    const createOrderData = async (_orderId: string): Promise<Omit<Order, 'id' | 'created_at' | 'updated_at'> | null> => {
         try {
             const { supabase } = await import('../services/supabase')
 

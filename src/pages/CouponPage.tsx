@@ -3,18 +3,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useCouponContext } from '../context/CouponContext';
 import UserInfoModal from '../components/UserInfoModal';
 
-interface Coupon {
-  id: string;
-  name: string;
-  type: string;
-  restrictions: string;
-  orderNumber?: string;
-  usagePeriod: string;
-  usageDate: string;
-  daysLeft: number;
-  isExpiring: boolean;
-}
-
 const CouponPage: React.FC = () => {
   const [productCode, setProductCode] = useState('');
   const [sortBy, setSortBy] = useState('recent');

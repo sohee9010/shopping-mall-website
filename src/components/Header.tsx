@@ -3,13 +3,11 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useCartContext } from '../context/CartContext'
 import { getCategoriesHierarchy } from '../services/categoryService'
 import { useUser } from '../context/UserContext'
-import { logout } from '../services/userService'
 import { getSearchSuggestions, getPopularSearchTerms } from '../services/productService'
 
 const Header: React.FC = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [activeCategory, setActiveCategory] = useState<any>(null)
-  const [activeSubcategory, setActiveSubcategory] = useState<any>(null)
   const [categories, setCategories] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -20,7 +18,7 @@ const Header: React.FC = () => {
   const { getCartItemCount, syncCartOnLogout } = useCartContext()
   const location = useLocation()
   const navigate = useNavigate()
-  const { currentUser, setCurrentUser, logout: logoutFromContext } = useUser()
+  const { currentUser, logout: logoutFromContext } = useUser()
   const searchInputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
 
@@ -36,9 +34,6 @@ const Header: React.FC = () => {
       setCategories(categoryData)
       if (categoryData.length > 0) {
         setActiveCategory(categoryData[0]) // 첫 번째 카테고리를 기본값으로
-        if (categoryData[0].subcategories && categoryData[0].subcategories.length > 0) {
-          setActiveSubcategory(categoryData[0].subcategories[0])
-        }
       }
     }
     loadCategories()
@@ -116,10 +111,6 @@ const Header: React.FC = () => {
     setIsDropdownOpen(!isDropdownOpen)
   }
 
-  const closeDropdown = () => {
-    setIsDropdownOpen(false)
-  }
-
   // 외부 클릭 시 드롭다운 닫기
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -148,15 +139,6 @@ const Header: React.FC = () => {
 
   const handleCategoryHover = (category: any) => {
     setActiveCategory(category)
-    if (category.subcategories && category.subcategories.length > 0) {
-      setActiveSubcategory(category.subcategories[0])
-    } else {
-      setActiveSubcategory(null)
-    }
-  }
-
-  const handleSubcategoryHover = (subcategory: any) => {
-    setActiveSubcategory(subcategory)
   }
 
   // 검색 기능

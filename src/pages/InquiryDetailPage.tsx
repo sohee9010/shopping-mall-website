@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { FiArrowLeft, FiMessageSquare, FiFileText, FiX, FiDownload } from 'react-icons/fi'
+import { FiArrowLeft, FiMessageSquare, FiFileText, FiDownload } from 'react-icons/fi'
 import { getInquiryById } from '../services/inquiryService'
 import { useUser } from '../context/UserContext'
 

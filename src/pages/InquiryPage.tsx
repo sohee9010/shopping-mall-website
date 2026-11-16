@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
-import { FiMessageSquare, FiFileText, FiUpload, FiX, FiSearch, FiHeart, FiHash, FiShoppingBag } from 'react-icons/fi'
+import { FiMessageSquare, FiFileText, FiX, FiShoppingBag } from 'react-icons/fi'
 import { useUser } from '../context/UserContext'
 import { getUserOrders } from '../services/orderService'
 import { createInquiry } from '../services/inquiryService'
@@ -249,13 +249,6 @@ const InquiryPage: React.FC = () => {
 
   const removeFile = () => {
     handleInputChange('imageFile', null)
-  }
-
-  const handleProductSelect = (product: any) => {
-    setSelectedProduct(product)
-    setShowOrderModal(false)
-    // 선택된 상품 정보를 문의 상품 필드에 설정
-    handleInputChange('productSearch', product.name)
   }
 
   const handleOrderSelect = (order: Order) => {

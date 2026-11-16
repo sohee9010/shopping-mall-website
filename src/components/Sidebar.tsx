@@ -6,7 +6,7 @@ interface SidebarProps {
   onPersonalInfoClick?: (menuItem: string) => void
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPersonalInfoClick }) => {
+const Sidebar: React.FC<SidebarProps> = ({ onPersonalInfoClick }) => {
   const location = useLocation()
   const navigate = useNavigate()
 

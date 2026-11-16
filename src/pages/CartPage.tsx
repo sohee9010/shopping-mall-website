@@ -7,7 +7,6 @@ import { useUser } from '../context/UserContext'
 
 const CartPage: React.FC = () => {
   const navigate = useNavigate()
-  const [isSticky, setIsSticky] = useState(false)
   const [showCouponSection, setShowCouponSection] = useState(false)
   const {
     cartItems,
@@ -26,22 +25,10 @@ const CartPage: React.FC = () => {
     selectedCoupon,
     selectCoupon,
     getAvailableCoupons,
-    calculateDiscount,
-    clearSelectedCoupon
+    calculateDiscount
   } = useCouponContext()
 
   const { currentUser } = useUser()
-
-  // 스크롤 이벤트 처리
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop
-      setIsSticky(scrollTop > 200) // 200px 이상 스크롤되면 sticky 활성화
-    }
-
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
 
   // 사용자 등급 확인
   const user = currentUser

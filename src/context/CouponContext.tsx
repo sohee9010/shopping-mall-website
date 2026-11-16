@@ -73,11 +73,6 @@ export const CouponProvider: React.FC<CouponProviderProps> = ({ children }) => {
     setSelectedCoupon(null)
   }
 
-  // 쿠폰이 선택되었는지 확인
-  const isCouponSelected = (couponId: string) => {
-    return selectedCoupon?.id === couponId
-  }
-
   // 쿠폰 사용 (결제 완료 후 호출)
   const useCoupon = (couponId: string, orderId: string, discountAmount: number) => {
     if (!currentUser) return

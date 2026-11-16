@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import UserInfoModal from '../components/UserInfoModal'
-import { getUserOrders, migrateLocalOrdersToDatabase, Order, OrderItem, updateOrderStatus, cancelOrder } from '../services/orderService'
+import { getUserOrders, migrateLocalOrdersToDatabase, Order, updateOrderStatus, cancelOrder } from '../services/orderService'
 import { useUser } from '../context/UserContext'
 
 
@@ -24,7 +24,7 @@ const OrderTracking: React.FC = () => {
       }
     }
 
-    const handleUserUpdate = (updatedUser: any) => {
+    const handleUserUpdate = () => {
       // 사용자 정보 업데이트 후 주문 목록 새로고침
       loadOrders()
     }
