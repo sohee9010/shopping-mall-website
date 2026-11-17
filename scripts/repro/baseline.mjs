@@ -10,7 +10,12 @@
 // ⚠️ 데이터를 바꾸는 실험이므로 로컬 Docker DB에서만 실행된다. 다른 주소면 즉시 중단한다.
 // =====================================================================
 import { createClient } from '@supabase/supabase-js'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync, existsSync } from 'node:fs'
+
+// 앱의 검색 필터 도우미 (P5 수정 이후에만 존재). Node 24는 .ts를 타입만 제거하고 바로 실행한다
+// (이 파일은 아래에서 URL이라는 이름으로 Supabase 주소를 쓰므로, 내장 URL 클래스는 globalThis로 명시한다)
+const filterHelperPath = new globalThis.URL('../../src/utils/postgrestFilter.ts', import.meta.url)
+const { ilikeAnyOf } = existsSync(filterHelperPath) ? await import(filterHelperPath.href) : {}
 
 process.loadEnvFile('.env.local')
 const URL = process.env.VITE_SUPABASE_URL
@@ -275,8 +280,11 @@ await check('P5', '쉼표·괄호가 들어간 검색어로 검색 실패',
     const anon = newClient()
     const tries = []
     for (const query of ['코트', '코트, 니트', '니트(울)']) {
-      const { data, error } = await anon.from('products').select('id').eq('status', 'forsale')
-        .or(`name.ilike.%${query}%,description.ilike.%${query}%,brand.ilike.%${query}%`)
+      // 앱과 같은 방식으로 필터를 만든다: 수정 후에는 도우미, 원본은 문자열 끼워 넣기
+      const filter = ilikeAnyOf
+        ? ilikeAnyOf(['name', 'description', 'brand'], query)
+        : `name.ilike.%${query}%,description.ilike.%${query}%,brand.ilike.%${query}%`
+      const { data, error } = await anon.from('products').select('id').eq('status', 'forsale').or(filter)
       tries.push({ query, ok: !error, detail: error ? error.message : `${data.length}건` })
     }
     const failed = tries.filter(t => !t.ok)
@@ -295,14 +303,19 @@ await check('P15', '옵션 없는 상품이 장바구니에서 삭제되지 않�
     const toner = await productByName(client, 'DEWLAB 약산성 밸런싱 토너 200ml')
     await client.from('user_carts').upsert({ user_id: user.id, product_id: toner.id, size: null, color: null, quantity: 1 },
       { onConflict: 'user_id,product_id,size,color' })
-    const { error } = await client.from('user_carts').delete()
-      .eq('user_id', user.id).eq('product_id', toner.id).eq('size', null).eq('color', null)
+    // 앱과 같은 방식으로 삭제한다: 수정 후에는 null이면 IS NULL, 원본은 '= null'
+    const fixed = ilikeAnyOf !== undefined // P5·P15는 같은 변경에서 함께 수정되었다
+    let del = client.from('user_carts').delete().eq('user_id', user.id).eq('product_id', toner.id)
+    del = fixed ? del.filter('size', 'is', null).filter('color', 'is', null) : del.eq('size', null).eq('color', null)
+    const { error } = await del
     const { data: left } = await client.from('user_carts').select('id').eq('user_id', user.id).eq('product_id', toner.id)
     return {
       reproduced: !error && (left?.length ?? 0) > 0,
       actual: error
         ? `삭제 요청 오류: ${error.message}`
-        : `삭제 요청은 오류 없이 끝났지만 행이 ${left.length}개 그대로 남음 (SQL에서 size = NULL은 항상 거짓 → 0건 삭제). 앱은 오류가 없으니 삭제 성공으로 처리하므로 화면 상태와 DB가 어긋난다`,
+        : left.length > 0
+          ? `삭제 요청은 오류 없이 끝났지만 행이 ${left.length}개 그대로 남음 (SQL에서 size = NULL은 항상 거짓 → 0건 삭제). 앱은 오류가 없으니 삭제 성공으로 처리하므로 화면 상태와 DB가 어긋난다`
+          : '옵션 없는 상품을 IS NULL 조건으로 삭제 → 남은 행 0개',
     }
   })
 
