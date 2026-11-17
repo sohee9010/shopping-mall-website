@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { ilikeAnyOf } from '../utils/postgrestFilter'
 import { Product, Category } from '../types'
 
 // 모든 상품 가져오기
@@ -266,7 +267,7 @@ export const searchProducts = async (query: string): Promise<Product[]> => {
             .from('products')
             .select('*')
             .eq('status', 'forsale')
-            .or(`name.ilike.%${query}%,description.ilike.%${query}%,brand.ilike.%${query}%`)
+            .or(ilikeAnyOf(['name', 'description', 'brand'], query)) // 검색어를 필터 문법이 아닌 값으로 취급 (P5)
             .order('sales', { ascending: false })
 
         if (error) {
@@ -304,7 +305,7 @@ export const advancedSearchProducts = async (
 
         // 검색어가 있는 경우
         if (query && query.trim()) {
-            queryBuilder = queryBuilder.or(`name.ilike.%${query}%,description.ilike.%${query}%,brand.ilike.%${query}%`)
+            queryBuilder = queryBuilder.or(ilikeAnyOf(['name', 'description', 'brand'], query)) // 검색어를 필터 문법이 아닌 값으로 취급 (P5)
         }
 
         // 카테고리 필터
@@ -441,7 +442,7 @@ export const getSearchResultCount = async (query: string, filters: any = {}): Pr
             .eq('status', 'forsale')
 
         if (query && query.trim()) {
-            queryBuilder = queryBuilder.or(`name.ilike.%${query}%,description.ilike.%${query}%,brand.ilike.%${query}%`)
+            queryBuilder = queryBuilder.or(ilikeAnyOf(['name', 'description', 'brand'], query)) // 검색어를 필터 문법이 아닌 값으로 취급 (P5)
         }
 
         if (filters.categoryId) {
