@@ -1,0 +1,17 @@
+{
+  "hero-1": "https://images.unsplash.com/photo-1645561305502-63a9ba09ab09?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8NHx8d29tZW4lMjBmYXNoaW9uJTIwZWRpdG9yaWFsfGVufDF8MHx8fDE3OTQ4OTY1ODR8MA&ixlib=rb-4.1.0",
+  "hero-2": "https://images.unsplash.com/photo-1781696855350-b8c1eadb7bec?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8N3x8bWVuc3dlYXIlMjBlZGl0b3JpYWx8ZW58MXwwfHx8MTc5NDg5NjU4NXww&ixlib=rb-4.1.0",
+  "hero-3": "https://images.unsplash.com/photo-1541377182189-74e4a4ea12e5?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8N3x8aGFuZGJhZyUyMHNob2VzJTIwYWNjZXNzb3JpZXMlMjBzdGlsbCUyMGxpZmV8ZW58MXwwfHx8MTc5NDg5NjU4Nnww&ixlib=rb-4.1.0",
+  "hero-4": "https://images.unsplash.com/photo-1785581778868-79100f7fe56c?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8NHx8YmVhdXR5JTIwc2tpbmNhcmUlMjBwcm9kdWN0cyUyMGZsYXRsYXl8ZW58MXwwfHx8MTc5NDg5NjU4NXww&ixlib=rb-4.1.0",
+  "hero-5": "https://images.unsplash.com/photo-1793172467302-bbe08880b883?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8NXx8Ym91dGlxdWUlMjBjbG90aGluZyUyMHN0b3JlJTIwaW50ZXJpb3J8ZW58MXwwfHx8MTc5NDg5NjU4Nnww&ixlib=rb-4.1.0",
+  "category-women": "https://images.unsplash.com/photo-1612731486606-2614b4d74921?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8M3x8d29tZW4lMjBmYXNoaW9uJTIwZWRpdG9yaWFsfGVufDF8MHx8fDE3OTQ4OTY1ODR8MA&ixlib=rb-4.1.0",
+  "category-men": "https://images.unsplash.com/photo-1700150662401-9b96a5fedfbb?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8M3x8bWVuc3dlYXIlMjBlZGl0b3JpYWx8ZW58MXwwfHx8MTc5NDg5NjU4NXww&ixlib=rb-4.1.0",
+  "category-beauty": "https://images.unsplash.com/photo-1748543668676-ea8241cb3886?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8MXx8YmVhdXR5JTIwc2tpbmNhcmUlMjBwcm9kdWN0cyUyMGZsYXRsYXl8ZW58MXwwfHx8MTc5NDg5NjU4NXww&ixlib=rb-4.1.0",
+  "focus-main": "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8MXx8a25pdHdlYXIlMjBhdXR1bW4lMjBmYXNoaW9ufGVufDF8MHx8fDE3OTQ4OTY1ODd8MA&ixlib=rb-4.1.0",
+  "focus-sub-1": "https://images.unsplash.com/photo-1676347929093-6614fb45bd90?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8NHx8cGVyZnVtZSUyMGJvdHRsZXxlbnwxfDJ8fHwxNzk0ODk2NTg0fDA&ixlib=rb-4.1.0",
+  "focus-sub-2": "https://images.unsplash.com/photo-1760624294504-211e763ee0fb?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8M3x8bGVhdGhlciUyMHRvdGUlMjBiYWd8ZW58MXwyfHx8MTc5NDg5NjU3OXww&ixlib=rb-4.1.0",
+  "brand-lunelle": "https://images.unsplash.com/photo-1623393808488-5d7b2fd0ddc6?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8Nnx8d29tZW4lMjBjYXNobWVyZSUyMGtuaXQlMjBzd2VhdGVyfGVufDF8MXx8fDE3OTQ4OTY1NzJ8MA&ixlib=rb-4.1.0",
+  "brand-greymont": "https://images.unsplash.com/photo-1619603364937-8d7af41ef206?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8Mnx8bWFuJTIwd29vbCUyMG92ZXJjb2F0JTIwbWVuc3dlYXJ8ZW58MXwxfHx8MTc5NDg5NjU3NXww&ixlib=rb-4.1.0",
+  "brand-atelier-vero": "https://images.unsplash.com/photo-1678784973073-f6a227408e81?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8MTB8fGhhbmRiYWclMjBzaG9lcyUyMGFjY2Vzc29yaWVzJTIwc3RpbGwlMjBsaWZlfGVufDF8MHx8fDE3OTQ4OTY1ODZ8MA&ixlib=rb-4.1.0",
+  "brand-nocturne": "https://images.unsplash.com/photo-1693960794377-b388be4227c2?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8OXx8cGVyZnVtZSUyMGJvdHRsZXxlbnwxfDJ8fHwxNzk0ODk2NTg0fDA&ixlib=rb-4.1.0"
+}
