@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import UserInfoModal from '../components/UserInfoModal'
-import { getUserOrders, migrateLocalOrdersToDatabase, Order, cancelOrder } from '../services/orderService'
+import { getUserOrders, Order, cancelOrder } from '../services/orderService'
 import { useUser } from '../context/UserContext'
 
 
@@ -56,17 +56,7 @@ const OrderTracking: React.FC = () => {
             }
             
             // 데이터베이스에서 사용자 주문 데이터 가져오기
-            let userOrders = await getUserOrders(currentUser.id || currentUser.email || currentUser.name)
-            
-            // 데이터베이스에 주문이 없으면 로컬스토리지에서 마이그레이션 시도
-            if (userOrders.length === 0) {
-                console.log('데이터베이스에 주문이 없어 로컬스토리지에서 마이그레이션을 시도합니다.')
-                const migratedCount = await migrateLocalOrdersToDatabase(currentUser.id || currentUser.email || currentUser.name)
-                if (migratedCount > 0) {
-                    console.log(`${migratedCount}개의 주문이 데이터베이스로 마이그레이션되었습니다.`)
-                    userOrders = await getUserOrders(currentUser.id || currentUser.email || currentUser.name)
-                }
-            }
+            const userOrders = await getUserOrders(currentUser.id || currentUser.email || currentUser.name)
             
             setOrders(userOrders)
         } catch (error) {

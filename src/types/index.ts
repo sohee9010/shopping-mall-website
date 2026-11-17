@@ -28,10 +28,12 @@ export interface Category {
 }
 
 export interface CartItem {
-  id: string
+  id: string // 'v{SKU id}' — 같은 상품이라도 옵션이 다르면 다른 항목
   productId: number
+  variantId: number // 재고·주문의 기준인 SKU(product_variants.id)
+  optionText: string | null // 표시용 옵션 문구 (예: '블랙 / M'), 옵션 없는 상품은 null
   quantity: number
-  product: Product
+  product: Product // product.price는 옵션 추가금을 더한 단가 (결제 금액은 서버가 DB 가격으로 다시 계산)
 }
 
 export interface User {

@@ -57,11 +57,11 @@ const CheckoutPage: React.FC = () => {
     if (isDirectOrder) {
         // 바로구매의 경우
         orderItems = directOrderData.items.map((item: any) => ({
-            id: item.product.id,
+            id: `v${item.variantId}`,
             product: item.product,
             quantity: item.quantity,
-            selectedSize: item.selectedSize,
-            selectedColor: item.selectedColor
+            variantId: item.variantId,
+            optionText: item.optionText
         }))
         totalPrice = directOrderData.totalAmount
     } else {
@@ -129,8 +129,8 @@ const CheckoutPage: React.FC = () => {
                 quantity: item.quantity,
                 image: item.product.image,
                 brand: item.product.brand || '브랜드 정보 없음',
-                size: item.selectedSize || 'FREE',
-                color: item.selectedColor || '블랙'
+                variant_id: item.variantId, // 고른 옵션(SKU). 이전에는 장바구니 주문이 항상 '블랙 / FREE'로 저장됐다 (P17)
+                option_text: item.optionText ?? null
             }))
 
             // 배송 예상일 계산 (3-5일 후)
@@ -256,8 +256,7 @@ const CheckoutPage: React.FC = () => {
                                         <h3 className="font-semibold text-gray-900 mb-1">{item.product.name}</h3>
                                         <p className="text-sm text-gray-500 mb-2">{item.product.brand}</p>
                                         <div className="text-sm text-gray-600 space-y-1">
-                                            <div>색상: {isDirectOrder ? item.selectedColor : '블랙'}</div>
-                                            <div>사이즈: {isDirectOrder ? item.selectedSize : 'FREE'}</div>
+                                            {item.optionText && <div>옵션: {item.optionText}</div>}
                                             <div>수량: {item.quantity}개</div>
                                         </div>
                                         <p className="text-lg font-bold text-black mt-2">₩{formatPrice(item.product.price * item.quantity)}</p>

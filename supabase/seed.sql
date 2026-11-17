@@ -175,9 +175,12 @@ from (values
   ('NOCTURNE',       421, 'NOCTURNE 글로우 틴트 밤',               34000, 65, 61, 'forsale'),
   ('NOCTURNE',       422, 'NOCTURNE 롱웨어 쿠션 파운데이션',       52000, 48, 53, 'forsale'),
   ('NOCTURNE',       422, 'NOCTURNE 블러 프라이머',                45000, 42, 32, 'forsale'),
-  ('NOCTURNE',       431, 'NOCTURNE 미드나잇 우드 오 드 퍼퓸 50ml', 168000, 20, 47, 'forsale'),
-  ('NOCTURNE',       431, 'NOCTURNE 화이트 머스크 오 드 퍼퓸 50ml', 158000, 22, 42, 'forsale')
+  ('NOCTURNE',       431, 'NOCTURNE 미드나잇 우드 오 드 퍼퓸', 168000, 20, 47, 'forsale'),
+  ('NOCTURNE',       431, 'NOCTURNE 화이트 머스크 오 드 퍼퓸', 158000, 22, 42, 'forsale')
 ) as p(brand, category_id, name, price, stock, sales, status);
+
+-- 상품 옵션(SKU) 데이터는 supabase/seeds/product_options.sql (클라우드와 공용)
+
 
 
 -- ---------------------------------------------------------------------
