@@ -1,6 +1,6 @@
 # 문제 재현 보고서 (수정 후)
 
-- 실행 일시: 2026. 11. 17. 오후 2:20:10
+- 실행 일시: 2026. 11. 17. 오후 2:26:13
 - 대상: 로컬 Supabase(Docker), 마이그레이션 `baseline` + `seed.sql` 적용 직후 (`npm run db:reset`)
 - 방법: 원본 프론트 코드가 DB를 다루는 순서를 그대로 흉내 낸 스크립트 (`scripts/repro/baseline.mjs`)
 - 판정: 🔴 재현됨 = 원본에 해당 문제가 실제로 존재함
@@ -28,7 +28,7 @@
 
 - **원본 코드 위치**: src/pages/PaymentSuccessPage.tsx:24-101 (URL의 paymentKey를 결제사에 확인하지 않고 주문 생성)
 - **정상이라면**: 서버가 결제사(Toss)에 승인 여부와 금액을 확인한 뒤에만 결제완료 주문이 생겨야 한다
-- **실제 결과**: '결제대기' 주문 생성 → 가짜 paymentKey로 승인 요청 → HTTP 402 UNAUTHORIZED_KEY → 주문 상태 '결제실패'
+- **실제 결과**: '결제대기' 주문 생성 → 가짜 paymentKey로 승인 요청 → HTTP 402 NOT_FOUND_PAYMENT_SESSION → 주문 상태 '결제실패'
 - **판정**: 🟢 재현 안 됨
 
 ## P3. 재고 1개 상품에 동시 주문 10건 (초과 판매 + 판매량 유실)
