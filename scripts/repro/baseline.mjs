@@ -43,9 +43,48 @@ async function productByName(client, name) {
 // 앱이 현재 쓰는 주문 경로로 주문한다.
 //   - 0003 이후: DB 함수 place_order (서버가 가격 재계산 + 조건부 재고 차감, 한 트랜잭션)
 //   - 그 이전(원본): 아래 createOrderLikeOriginal
+// 0007(SKU) 이후 옵션이 있는 상품은 SKU를 지정해야 주문된다.
+// 실험에서 SKU를 따로 지정하지 않은 항목은 '재고가 충분한 첫 SKU'를 고른다 (앱에서 고객이 옵션을 고르는 것에 해당)
+async function pickVariantId(client, productId, quantity) {
+  const { data, error } = await client.from('product_variants').select('id')
+    .eq('product_id', productId).eq('is_active', true).gte('stock', quantity).order('id').limit(1)
+  if (error?.code === '42P01' || error?.code === 'PGRST205') return undefined // SKU 테이블 없음 = 0007 이전
+  return data?.[0]?.id
+}
+
+// 장바구니 담기·삭제를 현재 앱과 같은 방식으로 한다
+//   - 0007 이후: 장바구니 한 줄 = SKU(variant_id), 충돌 키 (user_id, variant_id)
+//   - 그 이전:   (user_id, product_id, size, color), 옵션 없는 상품은 size·color가 null
+// 테스트가 예전 방식으로 담다가 '담기 실패 → 지울 것이 없음 → 통과'로 잘못 판정된 적이 있어,
+// 담기 결과를 반드시 확인한다.
+async function cartUsesVariants(client) {
+  const { error } = await client.from('user_carts').select('variant_id').limit(1)
+  return !error
+}
+async function addToCartLikeApp(client, userId, product) {
+  const base = {
+    user_id: userId, product_id: product.id, product_name: product.name, product_price: product.price,
+    product_image: product.image_urls?.[0] ?? '', brand: product.brand, quantity: 1, is_selected: true,
+    updated_at: new Date().toISOString(),
+  }
+  if (await cartUsesVariants(client)) {
+    const variantId = await pickVariantId(client, product.id, 1)
+    const { error } = await client.from('user_carts').upsert({ ...base, variant_id: variantId }, { onConflict: 'user_id,variant_id' })
+    return { error, match: { variant_id: variantId } }
+  }
+  const { error } = await client.from('user_carts').upsert({ ...base, size: undefined, color: undefined },
+    { onConflict: 'user_id,product_id,size,color', ignoreDuplicates: false })
+  return { error, match: { product_id: product.id } }
+}
+
 async function createOrderAsApp(client, orderData) {
+  const items = []
+  for (const i of orderData.items) {
+    const variantId = i.variant_id ?? await pickVariantId(client, i.product_id, i.quantity)
+    items.push({ product_id: i.product_id, variant_id: variantId ?? null, quantity: i.quantity })
+  }
   const args = {
-    p_items: orderData.items.map(i => ({ product_id: i.product_id, quantity: i.quantity, size: i.size ?? null, color: i.color ?? null })),
+    p_items: items,
     p_shipping_address: orderData.shipping_address,
     p_recipient_name: orderData.recipient_name,
     p_recipient_phone: orderData.recipient_phone,
@@ -189,9 +228,11 @@ await check('P3', '재고 1개 상품에 동시 주문 10건 (초과 판매 + �
   async () => {
     const { client, user } = await login('vip@etage.test')
     const before = await productByName(client, 'LUNELLE 핸드메이드 울 하프 코트')
+    // 10건 모두 같은 SKU(재고 1개)를 노리도록 미리 정한다 (0007 이전에는 SKU가 없어 undefined)
+    const targetVariantId = await pickVariantId(client, before.id, 1)
     const orders = Array.from({ length: 10 }, (_, i) => createOrderAsApp(client, {
       user_id: user.id, status: '결제완료', total_amount: before.price, payment_method: '카드', payment_key: `repro_p3_${i}`,
-      items: [{ product_id: before.id, name: before.name, price: before.price, quantity: 1, brand: before.brand, image: '' }],
+      items: [{ product_id: before.id, variant_id: targetVariantId, name: before.name, price: before.price, quantity: 1, brand: before.brand, image: '' }],
       shipping_address: '재현 실험', recipient_name: '재현', recipient_phone: '010-0000-0000',
     }))
     const done = await Promise.all(orders)
@@ -301,12 +342,17 @@ await check('P15', '옵션 없는 상품이 장바구니에서 삭제되지 않�
   async () => {
     const { client, user } = await login('customer@etage.test')
     const toner = await productByName(client, 'DEWLAB 약산성 밸런싱 토너 200ml')
-    await client.from('user_carts').upsert({ user_id: user.id, product_id: toner.id, size: null, color: null, quantity: 1 },
-      { onConflict: 'user_id,product_id,size,color' })
-    // 앱과 같은 방식으로 삭제한다: 수정 후에는 null이면 IS NULL, 원본은 '= null'
-    const fixed = ilikeAnyOf !== undefined // P5·P15는 같은 변경에서 함께 수정되었다
-    let del = client.from('user_carts').delete().eq('user_id', user.id).eq('product_id', toner.id)
-    del = fixed ? del.filter('size', 'is', null).filter('color', 'is', null) : del.eq('size', null).eq('color', null)
+    // 1) 앱과 같은 방식으로 담고, 정말 담겼는지 먼저 확인한다 (담기 실패를 '삭제 성공'으로 오판하지 않도록)
+    const added = await addToCartLikeApp(client, user.id, toner)
+    const { data: before } = await client.from('user_carts').select('id').eq('user_id', user.id).eq('product_id', toner.id)
+    if (added.error || !before?.length) throw new Error(`실험 준비 실패: 장바구니에 담기지 않음 (${added.error?.message ?? '0행'})`)
+
+    // 2) 앱과 같은 방식으로 삭제한다
+    //    0007 이후: SKU(variant_id)로 삭제 / P15 수정 후: null이면 IS NULL / 원본: '= null'
+    let del = client.from('user_carts').delete().eq('user_id', user.id)
+    if (added.match.variant_id) del = del.eq('variant_id', added.match.variant_id)
+    else if (ilikeAnyOf !== undefined) del = del.eq('product_id', toner.id).filter('size', 'is', null).filter('color', 'is', null)
+    else del = del.eq('product_id', toner.id).eq('size', null).eq('color', null)
     const { error } = await del
     const { data: left } = await client.from('user_carts').select('id').eq('user_id', user.id).eq('product_id', toner.id)
     return {
@@ -315,7 +361,7 @@ await check('P15', '옵션 없는 상품이 장바구니에서 삭제되지 않�
         ? `삭제 요청 오류: ${error.message}`
         : left.length > 0
           ? `삭제 요청은 오류 없이 끝났지만 행이 ${left.length}개 그대로 남음 (SQL에서 size = NULL은 항상 거짓 → 0건 삭제). 앱은 오류가 없으니 삭제 성공으로 처리하므로 화면 상태와 DB가 어긋난다`
-          : '옵션 없는 상품을 IS NULL 조건으로 삭제 → 남은 행 0개',
+          : `장바구니에 담긴 ${before.length}행을 ${added.match.variant_id ? 'SKU(variant_id)' : 'IS NULL 조건'}으로 삭제 → 남은 행 0개`,
     }
   })
 
@@ -336,6 +382,37 @@ await check('P13', '두 입점사가 동시에 상품 등록 → 상품 번호 �
       reproduced: idA.data === idB.data && failed.length > 0,
       actual: `두 입점사가 받은 번호 ${idA.data}, ${idB.data} → 등록 ${2 - failed.length}건 성공, ${failed.length}건 실패` +
         (failed.length ? ` (${failed[0].error.message})` : ''),
+    }
+  })
+
+// ---------------------------------------------------------------------
+await check('P17', '고객이 고른 옵션이 주문·재고에 반영되지 않음',
+  'v0-baseline: ProductDetailPage.tsx(옵션 버튼 코드 고정), CartContext.addToCart(옵션 미전달), CheckoutPage(\'블랙 / FREE\' 고정)',
+  '고객이 고른 옵션(SKU)이 주문에 기록되고, 그 SKU의 재고만 줄어야 한다',
+  async () => {
+    const { client, user } = await login('customer@etage.test')
+    const blazer = await productByName(client, 'GREYMONT 울 블레이저')
+    const { data: variants, error } = await client.from('product_variants')
+      .select('id, option1, option2, stock').eq('product_id', blazer.id).gt('stock', 0).order('id')
+    if (error) {
+      return { reproduced: true, actual: `옵션(SKU) 데이터가 없음 (${error.message}). 옵션은 화면에 고정된 버튼일 뿐 주문·재고와 연결되지 않는다` }
+    }
+    const [chosen, other] = variants
+    const placed = await createOrderAsApp(client, {
+      user_id: user.id, total_amount: blazer.price, payment_method: '카드', payment_key: 'repro_p17',
+      items: [{ product_id: blazer.id, variant_id: chosen.id, name: blazer.name, price: blazer.price, quantity: 1, brand: blazer.brand }],
+      shipping_address: '재현 실험', recipient_name: '재현', recipient_phone: '010-0000-0000',
+    })
+    if (!placed.ok) return { reproduced: true, actual: `주문 실패: ${placed.error}` }
+    const { data: after } = await client.from('product_variants').select('id, stock').in('id', [chosen.id, other.id])
+    const chosenAfter = after.find(v => v.id === chosen.id).stock
+    const otherAfter = after.find(v => v.id === other.id).stock
+    const recorded = placed.order.items[0].option_text
+    const expected = [chosen.option1, chosen.option2].filter(Boolean).join(' / ')
+    return {
+      reproduced: recorded !== expected || chosenAfter !== chosen.stock - 1 || otherAfter !== other.stock,
+      actual: `'${expected}' 선택 → 주문에 기록된 옵션 '${recorded}', 고른 SKU 재고 ${chosen.stock} → ${chosenAfter}, ` +
+        `다른 옵션 '${[other.option1, other.option2].filter(Boolean).join(' / ')}' 재고 ${other.stock} → ${otherAfter}`,
     }
   })
 
@@ -366,13 +443,9 @@ await works('고객: 본인 프로필·주문 조회, 장바구니 담기', asyn
   const { data: me } = await client.from('users').select('name').eq('id', user.id).single()
   const { data: orders } = await client.from('orders').select('id').eq('user_id', user.id)
   const toner = await productByName(client, 'DEWLAB 히알루론 수분 토너 200ml')
-  // 앱(src/services/cartService.ts cartItemToDbItem + addItemToUserCart)이 보내는 것과 같은 형태로 담는다.
+  // 앱(src/services/cartService.ts)이 보내는 것과 같은 형태로 담는다.
   // 최소 데이터로만 테스트했다가 앱이 함께 보내는 상품명·가격·이미지·브랜드 컬럼 누락을 놓친 적이 있다(0006)
-  const { error } = await client.from('user_carts').upsert({
-    user_id: user.id, product_id: toner.id, product_name: toner.name, product_price: toner.price,
-    product_image: toner.image_urls?.[0] ?? '', quantity: 1, size: undefined, color: undefined, brand: toner.brand,
-    is_selected: true, updated_at: new Date().toISOString(),
-  }, { onConflict: 'user_id,product_id,size,color', ignoreDuplicates: false })
+  const { error } = await addToCartLikeApp(client, user.id, toner)
   return { ok: !!me && orders?.length > 0 && !error, detail: `프로필 ${me?.name ?? '없음'}, 주문 ${orders?.length ?? 0}건, 장바구니 ${error ? '실패: ' + error.message : '성공'}` }
 })
 await works('입점사(LUNELLE): 자기 브랜드 상품 등록·수정', async () => {
@@ -395,7 +468,7 @@ await works('본사: 전체 회원·주문 조회', async () => {
 
 await works('주문: 정상 주문 → 고객 취소 요청 → 본사 취소 승인 시 재고 복구', async () => {
   const { client, user } = await login('customer@etage.test')
-  const p = await productByName(client, 'GREYMONT 울 블레이저')
+  const p = await productByName(client, 'NOCTURNE 벨벳 매트 립스틱') // 수량 2를 주문할 수 있도록 재고가 넉넉한 SKU가 있는 상품
   const placed = await createOrderAsApp(client, {
     user_id: user.id, status: '결제완료', total_amount: p.price, payment_method: '카드', payment_key: 'regression_cancel',
     items: [{ product_id: p.id, name: p.name, price: p.price, quantity: 2, brand: p.brand, size: 'M', color: '차콜' }],
@@ -434,6 +507,47 @@ await works('결제: 결제창에서 취소하고 돌아오면 확보했던 재�
     ok: !error && mid.stock === p.stock - 1 && end.stock === p.stock && o.status === '결제취소',
     detail: `재고 ${p.stock} → 결제대기 ${mid.stock} → 결제창 취소 후 ${end.stock}, 주문 상태 '${o.status}'${error ? ', 오류: ' + error.message : ''}`,
   }
+})
+// ---- SKU(0007) 이후에만 의미가 있는 확인 ----
+const hasVariants = !(await newClient().from('product_variants').select('id').limit(1)).error
+
+await works('SKU: 품절 조합(재고 0 SKU)은 주문이 거부됨', async () => {
+  if (!hasVariants) return { ok: true, detail: '0007 이전 구조(SKU 없음) — 해당 없음' }
+  const { client, user } = await login('vip@etage.test')
+  const { data: soldOut } = await client.from('product_variants')
+    .select('id, product_id, option1, option2, products!inner(name, status)')
+    .eq('stock', 0).eq('products.status', 'forsale').limit(1).single()
+  const res = await createOrderAsApp(client, {
+    user_id: user.id, total_amount: 0, payment_method: '카드', payment_key: 'regression_soldout',
+    items: [{ product_id: soldOut.product_id, variant_id: soldOut.id, quantity: 1 }],
+    shipping_address: '정상 확인', recipient_name: '정상', recipient_phone: '010-0000-0000',
+  })
+  return { ok: !res.ok, detail: `${soldOut.products.name} (${[soldOut.option1, soldOut.option2].filter(Boolean).join(' / ')}) → ${res.ok ? '주문 성공 (문제)' : '거부: ' + res.error}` }
+})
+await works('SKU: 옵션 추가금이 주문 금액에 반영됨 (향수 100ml +70,000원)', async () => {
+  if (!hasVariants) return { ok: true, detail: '0007 이전 구조(SKU 없음) — 해당 없음' }
+  const { client, user } = await login('vip@etage.test') // GOLD 등급: 배송비 0원
+  const perfume = await productByName(client, 'NOCTURNE 미드나잇 우드 오 드 퍼퓸')
+  const { data: v100 } = await client.from('product_variants').select('id, price_delta').eq('product_id', perfume.id).eq('option1', '100ml').single()
+  const res = await createOrderAsApp(client, {
+    user_id: user.id, total_amount: 1, payment_method: '카드', payment_key: 'regression_delta',
+    items: [{ product_id: perfume.id, variant_id: v100.id, quantity: 1 }],
+    shipping_address: '정상 확인', recipient_name: '정상', recipient_phone: '010-0000-0000',
+  })
+  const expected = perfume.price + v100.price_delta
+  return {
+    ok: res.ok && res.order.total_amount === expected,
+    detail: res.ok ? `기본가 ${perfume.price.toLocaleString()} + 추가금 ${v100.price_delta.toLocaleString()} → 주문 금액 ${res.order.total_amount.toLocaleString()}원` : `주문 실패: ${res.error}`,
+  }
+})
+await works('SKU: 옵션 있는 상품을 옵션 없이 주문하면 거부됨', async () => {
+  if (!hasVariants) return { ok: true, detail: '0007 이전 구조(SKU 없음) — 해당 없음' }
+  const { client } = await login('vip@etage.test')
+  const knit = await productByName(client, 'OFFBEAT STUDIO 램스울 크루넥 니트')
+  const { error } = await client.rpc('place_order', {
+    p_items: [{ product_id: knit.id, quantity: 1 }], p_shipping_address: '정상 확인', p_recipient_name: '정상', p_recipient_phone: '010',
+  })
+  return { ok: !!error && error.hint === 'OPTION_REQUIRED', detail: error ? `거부: ${error.message}` : '주문 성공 (문제)' }
 })
 await works('보안 규칙: 고객은 결제대기 주문을 스스로 결제완료로 바꿀 수 없음', async () => {
   const { client, user } = await login('customer@etage.test')
