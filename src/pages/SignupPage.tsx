@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { SITE } from '../config/site'
 import { Link, useNavigate } from 'react-router-dom'
 import { signup, checkEmailExists } from '../services/userService'
 
@@ -83,7 +84,7 @@ const SignupPage: React.FC = () => {
       <div className="bg-transparent p-12 w-full max-w-[480px]">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-black mb-2 tracking-tight">회원가입</h1>
-          <p className="text-gray-500 text-sm m-0">PREMIUM 회원이 되어 특별한 혜택을 누리세요</p>
+          <p className="text-gray-500 text-sm m-0">{SITE.name} 회원이 되어 특별한 혜택을 누리세요</p>
         </div>
 
         <form className="mb-8" onSubmit={handleSubmit}>

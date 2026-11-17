@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { SITE } from '../config/site'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useCartContext } from '../context/CartContext'
 import { getCategoriesHierarchy } from '../services/categoryService'
@@ -197,7 +198,7 @@ const Header: React.FC = () => {
         {!shouldHideTopHeader && (
           <div className="border-b border-gray-100 py-3">
             <div className="flex items-center justify-between max-w-7xl mx-auto px-6">
-              <Link to="/" className="text-2xl font-bold text-black no-underline tracking-tight">PREMIUM</Link>
+              <Link to="/" className="text-2xl font-bold text-black no-underline tracking-tight">{SITE.name}</Link>
               <div className="flex items-center gap-4">
                 {/* 햄버거 버튼 */}
                 <div
@@ -282,7 +283,7 @@ const Header: React.FC = () => {
                     onKeyPress={handleKeyPress}
                     onFocus={handleSearchFocus}
                     className="py-2.5 px-5 pr-12 border border-gray-200 rounded-full outline-none text-sm w-96 transition-all duration-300 bg-gray-50 focus:border-black focus:bg-white focus:shadow-lg"
-                    placeholder="검색어를 입력하세요 (예: 나이키, 신발, 스포츠)"
+                    placeholder="검색어를 입력하세요 (예: 캐시미어, 로퍼, 향수)"
                   />
                   <button
                     type="button"

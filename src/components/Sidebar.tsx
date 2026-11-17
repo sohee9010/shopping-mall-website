@@ -1,4 +1,5 @@
 import React from 'react'
+import { SITE } from '../config/site'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 interface SidebarMenuItem {
@@ -76,7 +77,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPersonalInfoClick }) => {
   return (
     <div className="bg-white rounded-lg p-8 h-fit shadow-lg w-64 flex-shrink-0 relative z-10">
       <div className="text-left mb-8 pb-5 border-b-2 border-gray-800">
-        <h3 className="text-2xl font-bold text-gray-800 m-0">PREMIUM</h3>
+        <h3 className="text-2xl font-bold text-gray-800 m-0">{SITE.name}</h3>
       </div>
 
       <nav className="block">
