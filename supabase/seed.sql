@@ -40,7 +40,8 @@ begin
       confirmation_token, recovery_token, email_change, email_change_token_new
     ) values (
       '00000000-0000-0000-0000-000000000000', acc.id, 'authenticated', 'authenticated', acc.email,
-      crypt('etage1234!', gen_salt('bf')), now(),
+      -- pgcrypto 함수는 extensions 스키마에 있다. 로컬은 search_path에 포함되지만 클라우드는 아니므로 스키마를 명시한다
+      extensions.crypt('etage1234!', extensions.gen_salt('bf')), now(),
       '{"provider":"email","providers":["email"]}', acc.meta, now(), now(),
       '', '', '', ''
     );
