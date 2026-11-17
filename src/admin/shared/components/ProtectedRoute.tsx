@@ -9,7 +9,7 @@ interface ProtectedRouteProps {
 
 // 인증이 필요한 라우트를 보호하는 컴포넌트
 const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
-  const { user, loading } = useAuth();
+  const { user, loading, roleInfo } = useAuth();
   const location = useLocation();
 
   // 로딩 중일 때 스피너 표시
@@ -35,43 +35,12 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
   }
 
   // 관리자 권한이 필요한 페이지인데 관리자가 아닌 경우
-  const isAdmin = (): boolean => {
-    const role = user?.user_metadata?.role;
-    
-    // role이 없으면 일반 고객으로 간주
-    if (!role) {
-      return false;
-    }
-    
-    // admin, hq는 항상 허용
-    if (role === 'admin' || role === 'hq') {
-      return true;
-    }
-    
-    // merchant인 경우에만 허용 (추후 brand_admins 테이블 검증 가능)
-    if (role === 'merchant') {
-      return true;
-    }
-    
-    // 기타 모든 경우는 거부
-    return false;
-  };
-
-  console.log('🔍 권한 검사:', {
-    requireAdmin,
-    userEmail: user?.email,
-    userRole: user?.user_metadata?.role,
-    isAdminResult: isAdmin(),
-    userMetadata: user?.user_metadata
-  });
+  // 관리자 화면 접근: DB(user_roles)에 본사 또는 입점사 역할이 있어야 한다.
+  // user_metadata.role은 사용자가 직접 바꿀 수 있으므로 판단에 쓰지 않는다.
+  // (화면 차단은 사용자 경험용이고, 실제 데이터 접근은 DB의 RLS가 막는다)
+  const isAdmin = (): boolean => roleInfo?.role === 'hq' || roleInfo?.role === 'merchant';
 
   if (requireAdmin && !isAdmin()) {
-    console.log('❌ 관리자 권한 부족:', {
-      requireAdmin,
-      isAdminResult: isAdmin(),
-      userEmail: user?.email,
-      userMetadata: user?.user_metadata
-    });
     
     return (
       <div style={{
@@ -96,7 +65,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
             borderRadius: '4px'
           }}>
             현재 사용자: {user?.email}<br/>
-            권한: {user?.user_metadata?.role || '일반 사용자'}
+            권한: {roleInfo?.role === 'customer' || !roleInfo ? '일반 사용자' : roleInfo.role}
           </div>
           <button 
             className="btn btn-primary"

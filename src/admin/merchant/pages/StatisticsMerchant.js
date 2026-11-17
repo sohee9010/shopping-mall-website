@@ -23,7 +23,7 @@ import { useAuth } from '../../shared/contexts/AuthContext';
 
 const StatisticsMerchant = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, roleInfo } = useAuth();
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [selectedCategory, setSelectedCategory] = useState('products');
   const [showReportModal, setShowReportModal] = useState(false);
@@ -72,13 +72,12 @@ const StatisticsMerchant = () => {
     }
   });
 
-  // 브랜드명 가져오기
+  // 브랜드명: DB 역할(user_roles -> brand_admins)에서 가져온다
   useEffect(() => {
-    if (user) {
-      const brand = user.user_metadata?.brand || user.user_metadata?.company || user.user_metadata?.name || '알 수 없음';
-      setBrandName(brand);
+    if (roleInfo?.brandName) {
+      setBrandName(roleInfo.brandName);
     }
-  }, [user]);
+  }, [roleInfo?.brandName]);
 
   // 브랜드별 매출 목표 조회
   const loadSalesTarget = async () => {

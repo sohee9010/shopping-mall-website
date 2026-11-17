@@ -103,6 +103,12 @@ insert into public.brand_admins (name, business_number, email, phone, address, g
   ('DEWLAB',         '101-81-00007', 'dewlab@etage.test',    '02-100-0007', '서울시 강남구 가상로 7', 'STANDARD', 'active'),
   ('NOCTURNE',       '101-81-00008', 'nocturne@etage.test',  '02-100-0008', '서울시 강남구 가상로 8', 'PREMIUM',  'active');
 
+-- 관리자 역할 (0002 role_based_access 이후 권한 판단의 기준. user_metadata의 role/brand는 더 이상 쓰지 않음)
+insert into public.user_roles (user_id, role, brand_id) values
+  ('00000000-0000-4000-8000-000000000011', 'merchant', (select id from public.brand_admins where name = 'LUNELLE')),
+  ('00000000-0000-4000-8000-000000000012', 'merchant', (select id from public.brand_admins where name = 'GREYMONT')),
+  ('00000000-0000-4000-8000-000000000021', 'hq', null);
+
 
 -- ---------------------------------------------------------------------
 -- 상품 56개 (소분류당 2개). 이미지는 정책(설계서 1-D) 확정 후 추가 예정이라 비워 둔다

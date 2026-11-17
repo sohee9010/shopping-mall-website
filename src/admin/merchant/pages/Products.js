@@ -18,6 +18,7 @@ import Modal from '../../shared/components/Modal';
 import ImageUpload from '../../shared/components/ImageUpload';
 import MultipleImageUpload from '../../shared/components/MultipleImageUpload';
 import { supabase, getProducts, createProduct, updateProduct, deleteProduct, uploadProductImage, uploadMultipleProductImages, deleteProductImage } from '../../shared/lib/supabase';
+import { getMyRole } from '../../../services/roleService';
 
 const Products = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -99,9 +100,10 @@ const Products = () => {
   // 현재 사용자의 브랜드 정보 로드
   const loadCurrentUserBrand = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.user_metadata?.role === 'merchant') {
-        const userBrand = user?.user_metadata?.name || '';
+      // 브랜드는 DB 역할(user_roles -> brand_admins)에서 가져온다. 이전에는 담당자 이름(user_metadata.name)을 브랜드로 썼다
+      const roleInfo = await getMyRole();
+      if (roleInfo.role === 'merchant') {
+        const userBrand = roleInfo.brandName || '';
         setCurrentUserBrand(userBrand);
         console.log('🏷️ 현재 사용자 브랜드:', userBrand);
       }
@@ -230,15 +232,14 @@ const Products = () => {
       if (result.success) {
         console.log('📊 로드된 상품 데이터:', result.data);
         
-        // 사용자 정보 가져오기
-        const { data: { user } } = await supabase.auth.getUser();
-        console.log('👤 현재 사용자:', user?.email, user?.user_metadata);
+        // 사용자 역할 가져오기 (DB 기준)
+        const roleInfo = await getMyRole();
         
         let filteredProducts = result.data;
         
         // merchant 역할인 경우 브랜드별 필터링
-        if (user?.user_metadata?.role === 'merchant') {
-          const userBrand = user?.user_metadata?.name;
+        if (roleInfo.role === 'merchant') {
+          const userBrand = roleInfo.brandName || '';
           console.log('🏷️ 사용자 브랜드:', userBrand);
           
           filteredProducts = result.data.filter(product => 

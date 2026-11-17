@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { getMyRole } from './roleService'
 import type { OrderItem } from './orderService'
 
 export interface BrandCustomer {
@@ -174,43 +175,10 @@ export const getBrandCustomers = async (brandName: string): Promise<BrandCustome
 // 현재 로그인한 관리자의 브랜드명 조회
 export const getCurrentBrandName = async (): Promise<string | null> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      console.log('❌ 사용자 정보 없음')
-      return null
-    }
-
-    console.log('👤 현재 사용자 정보:', {
-      email: user.email,
-      role: user.user_metadata?.role,
-      name: user.user_metadata?.name,
-      metadata: user.user_metadata
-    })
-
-    // 1. user_metadata에서 브랜드명 확인
-    const brandFromMetadata = user.user_metadata?.name
-    if (brandFromMetadata) {
-      console.log('🏷️ user_metadata에서 브랜드명:', brandFromMetadata)
-      return brandFromMetadata
-    }
-
-    // 2. brand_admins 테이블에서 조회
-    console.log('📋 brand_admins 테이블에서 조회 중...', user.email)
-    const { data: brandData, error } = await supabase
-      .from('brand_admins')
-      .select('name')
-      .eq('email', user.email)
-      .single()
-
-    if (error) {
-      console.error('브랜드 정보 조회 오류:', error)
-      return null
-    }
-
-    console.log('🏷️ brand_admins에서 브랜드명:', brandData?.name)
-    return brandData?.name || null
-
+    // 브랜드는 DB 역할(user_roles -> brand_admins)에서 가져온다.
+    // 이전에는 user_metadata.name(담당자 이름, 사용자가 수정 가능)을 브랜드로 썼다
+    const roleInfo = await getMyRole()
+    return roleInfo.role === 'merchant' ? roleInfo.brandName : null
   } catch (error) {
     console.error('브랜드명 조회 중 오류:', error)
     return null

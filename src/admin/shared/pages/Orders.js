@@ -15,7 +15,7 @@ import { supabase } from '../../../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 const Orders = () => {
-  const { user } = useAuth();
+  const { user, roleInfo } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -58,7 +58,7 @@ const Orders = () => {
         .order('created_at', { ascending: false });
 
       // 사용자 역할에 따른 필터링
-      if (user?.user_metadata?.role === 'merchant') {
+      if (roleInfo?.role === 'merchant') {
         console.log('🏪 입점사 관리자 모드')
         // 입점사 관리자: 해당 브랜드의 주문만 조회
         // items 배열에서 특정 브랜드의 상품이 포함된 주문을 찾아야 함
@@ -73,22 +73,8 @@ const Orders = () => {
         console.log('📦 조회된 전체 주문 수:', data?.length || 0);
 
         // 입점사 관리자의 브랜드명 추출 - brand_admins 테이블에서 조회
-        let merchantBrand = user?.user_metadata?.brand;
-        
-        if (!merchantBrand) {
-          // user_metadata에 브랜드 정보가 없으면 brand_admins 테이블에서 조회
-          const { data: brandAdmin, error: brandError } = await supabase
-            .from('brand_admins')
-            .select('name')
-            .eq('email', user?.email)
-            .single();
-          
-          if (brandError) {
-            console.error('❌ brand_admins 조회 오류:', brandError);
-          }
-          
-          merchantBrand = brandAdmin?.name || 'Unknown';
-        }
+        // 브랜드는 DB 역할(user_roles -> brand_admins)에서 가져온다. 데이터 자체도 RLS가 자기 브랜드 주문만 돌려준다
+        const merchantBrand = roleInfo.brandName;
         
         console.log('🏷️ 입점사 브랜드:', merchantBrand);
         
@@ -192,7 +178,7 @@ const Orders = () => {
     if (user) {
       fetchOrders();
     }
-  }, [user]);
+  }, [user, roleInfo]);
 
   // 주문 관리 함수들
   const handleViewOrder = (order) => {

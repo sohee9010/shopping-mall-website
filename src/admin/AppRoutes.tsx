@@ -35,10 +35,10 @@ import Customers from './merchant/pages/Customers';
 import CustomerServiceMerchant from './merchant/pages/CustomerService';
 
 const AppRoutes: React.FC = () => {
-  const { user } = useAuth();
-  
-  // 사용자 role 가져오기 (user_metadata 또는 추가 DB 조회)
-  const userRole = user?.user_metadata?.role || 'merchant'; // 기본값은 merchant
+  const { roleInfo } = useAuth();
+
+  // 역할은 DB(user_roles)에서 조회한 값 사용 (user_metadata는 사용자가 수정 가능해 신뢰하지 않음)
+  const userRole = roleInfo?.role;
   
   const renderHQRoutes = () => (
     <Routes>

@@ -16,7 +16,7 @@ import { getInquiriesByBrand, replyToInquiry, updateInquiryStatus } from '../../
 import { useAuth } from '../../shared/contexts/AuthContext';
 
 const CustomerService = () => {
-  const { user } = useAuth();
+  const { user, roleInfo } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -27,16 +27,10 @@ const CustomerService = () => {
   const [loading, setLoading] = useState(true);
   const [brandName, setBrandName] = useState('');
 
-  // 현재 입점사의 브랜드명 가져오기 (인증 정보 기반)
+  // 현재 입점사의 브랜드명: DB 역할(user_roles -> brand_admins)에서 가져온다
   useEffect(() => {
-    const merchantBrand = 
-      user?.user_metadata?.brand ||
-      user?.user_metadata?.company ||
-      user?.user_metadata?.name ||
-      '알 수 없는 브랜드';
-    setBrandName(merchantBrand);
-    console.log('🏷️ 입점사 브랜드(인증):', merchantBrand);
-  }, [user?.user_metadata?.brand, user?.user_metadata?.company, user?.user_metadata?.name]);
+    setBrandName(roleInfo?.brandName || '');
+  }, [roleInfo?.brandName]);
 
   // 브랜드별 문의 목록 로드
   useEffect(() => {
