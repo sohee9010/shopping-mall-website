@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { useSearchParams, Link, useNavigate } from 'react-router-dom'
 import { FiXCircle, FiHome, FiRefreshCw } from 'react-icons/fi'
+import { getRedirectParam } from '../utils/redirectParams'
+import { cancelPendingOrder } from '../services/orderService'
 
 const PaymentFailPage: React.FC = () => {
   const [searchParams] = useSearchParams()
@@ -8,9 +10,16 @@ const PaymentFailPage: React.FC = () => {
   const [errorInfo, setErrorInfo] = useState<any>(null)
 
   useEffect(() => {
-    const code = searchParams.get('code')
-    const message = searchParams.get('message')
-    const orderId = searchParams.get('orderId')
+    // Toss는 실패 정보도 주소의 # 앞에 붙여 돌려보낸다 (utils/redirectParams.ts 참고)
+    const code = getRedirectParam(searchParams, 'code')
+    const message = getRedirectParam(searchParams, 'message')
+    const orderId = getRedirectParam(searchParams, 'orderId')
+
+    // 결제가 실패했으므로 결제 전에 확보해 둔 재고를 돌려놓는다 (본인의 결제대기 주문만 취소됨)
+    if (orderId) {
+      cancelPendingOrder(orderId)
+      sessionStorage.removeItem('pendingPayment')
+    }
 
     setErrorInfo({
       code,

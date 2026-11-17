@@ -4,6 +4,7 @@ import { FiCheckCircle, FiHome, FiShoppingBag } from 'react-icons/fi'
 import { useCouponContext } from '../context/CouponContext'
 import { useCartContext } from '../context/CartContext'
 import { confirmPayment } from '../services/orderService'
+import { getRedirectParam } from '../utils/redirectParams'
 
 interface PaymentInfo {
   orderId: string
@@ -31,9 +32,10 @@ const PaymentSuccessPage: React.FC = () => {
     if (hasProcessedRef.current) return
     hasProcessedRef.current = true
 
-    const paymentKey = searchParams.get('paymentKey')
-    const orderId = searchParams.get('orderId')
-    const amount = Number(searchParams.get('amount'))
+    // Toss는 결제 정보를 주소의 # 앞에 붙여 돌려보낸다 (utils/redirectParams.ts 참고)
+    const paymentKey = getRedirectParam(searchParams, 'paymentKey')
+    const orderId = getRedirectParam(searchParams, 'orderId')
+    const amount = Number(getRedirectParam(searchParams, 'amount'))
 
     if (!paymentKey || !orderId || !Number.isInteger(amount)) {
       setLoading(false)
