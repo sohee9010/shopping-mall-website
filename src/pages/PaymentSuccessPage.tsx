@@ -3,155 +3,76 @@ import { useSearchParams, Link, useNavigate } from 'react-router-dom'
 import { FiCheckCircle, FiHome, FiShoppingBag } from 'react-icons/fi'
 import { useCouponContext } from '../context/CouponContext'
 import { useCartContext } from '../context/CartContext'
-import { createOrder } from '../services/orderService'
+import { confirmPayment } from '../services/orderService'
 
+interface PaymentInfo {
+  orderId: string
+  amount: number
+  method: string
+  approvedAt: string
+}
+
+// 결제창에서 돌아온 결제 성공 페이지.
+// 주소창의 paymentKey·orderId·amount는 누구나 만들 수 있으므로 그대로 믿지 않고,
+// 서버(Edge Function)가 주문 금액과 대조한 뒤 Toss 승인 API를 호출해 '결제완료'로 바꾼다.
+// (원본은 이 값만으로 결제완료 주문을 만들었다: "실제로는 서버에서 결제 승인 API를 호출해야 합니다 / 여기서는 시뮬레이션으로 처리")
 const PaymentSuccessPage: React.FC = () => {
   const [searchParams] = useSearchParams()
-  const [paymentInfo, setPaymentInfo] = useState<any>(null)
+  const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [orderCreated, setOrderCreated] = useState(false)
   const navigate = useNavigate()
-  const hasProcessedRef = useRef(false) // 중복 실행 방지를 위한 ref
-  const { selectedCoupon, applyCoupon, calculateDiscount } = useCouponContext()
+  const hasProcessedRef = useRef(false) // StrictMode 등으로 effect가 두 번 실행돼도 승인 요청은 한 번만
+  const { applyCoupon } = useCouponContext()
   const { clearCart } = useCartContext()
 
   useEffect(() => {
-    // 이미 처리되었으면 중단
-    if (hasProcessedRef.current) {
-      return
-    }
+    if (hasProcessedRef.current) return
+    hasProcessedRef.current = true
 
     const paymentKey = searchParams.get('paymentKey')
     const orderId = searchParams.get('orderId')
-    const amount = searchParams.get('amount')
+    const amount = Number(searchParams.get('amount'))
 
-    if (paymentKey && orderId && amount) {
-      // 이미 주문이 생성되었는지 확인
-      const existingOrders = JSON.parse(localStorage.getItem('orders') || '[]')
-      const orderExists = existingOrders.some((order: any) => 
-        order.payment_key === paymentKey
-      )
-
-      if (orderExists) {
-        console.log('이미 주문이 생성되었습니다.')
-        setPaymentInfo({
-          paymentKey,
-          orderId,
-          amount: parseInt(amount),
-          method: '카드',
-          approvedAt: new Date().toISOString(),
-        })
-        setLoading(false)
-        hasProcessedRef.current = true
-        return
-      }
-
-      // 처리 시작 표시
-      hasProcessedRef.current = true
-
-      // 실제로는 서버에서 결제 승인 API를 호출해야 합니다
-      // 여기서는 시뮬레이션으로 처리
-      setTimeout(async () => {
-        const paymentData = {
-          paymentKey,
-          orderId,
-          amount: parseInt(amount),
-          method: '카드',
-          approvedAt: new Date().toISOString(),
-        }
-        setPaymentInfo(paymentData)
-        
-        // 결제 성공 시 선택된 쿠폰이 있으면 사용 처리
-        if (selectedCoupon) {
-          const discountAmount = calculateDiscount(selectedCoupon, parseInt(amount))
-          applyCoupon(selectedCoupon.id, orderId, discountAmount)
-        }
-        
-        // 결제 성공 시 주문 생성
-        await createOrderAfterPayment(paymentData)
-        setLoading(false)
-      }, 1000)
-    } else {
+    if (!paymentKey || !orderId || !Number.isInteger(amount)) {
       setLoading(false)
+      return
     }
-  }, []) // 의존성 배열을 비워서 한 번만 실행
 
-  const createOrderAfterPayment = async (paymentData: any) => {
-    try {
-      // 결제 전 준비된 주문 데이터 가져오기
-      const pendingOrderStr = sessionStorage.getItem('pendingOrderData');
-      if (!pendingOrderStr) {
-        console.error('주문 데이터를 찾을 수 없습니다. 결제는 완료되었지만 주문 생성에 실패했습니다.')
-        alert('결제는 완료되었지만 주문 생성에 실패했습니다. 고객센터에 문의해주세요.')
-        return
-      }
-      
-      const pendingData = JSON.parse(pendingOrderStr);
-      console.log('결제 성공 - 주문 생성 시작:', pendingData)
-      
-      // 주문 데이터에 결제 키 추가하고 상태를 결제완료로 변경
-      const orderDataWithPayment = {
-        ...pendingData.orderData,
-        status: '결제완료' as const, // 결제 완료 상태로 생성
-        payment_key: paymentData.paymentKey,
-        payment_method: paymentData.method || pendingData.orderData.payment_method
-      };
+    const confirm = async () => {
+      const result = await confirmPayment({ paymentKey, orderId, amount })
 
-      // 실제 주문 생성
-      const savedOrder = await createOrder(orderDataWithPayment)
-      
-      if (!savedOrder) {
-        console.error('주문 생성에 실패했습니다.')
-        alert('결제는 완료되었지만 주문 생성에 실패했습니다. 고객센터에 문의해주세요.')
+      if (!result.ok) {
+        console.error('결제 승인 실패:', result.code, result.message)
+        setErrorMessage(result.message)
+        setLoading(false)
         return
       }
 
-      console.log('주문이 성공적으로 생성되었습니다:', savedOrder)
+      const { order } = result
+      setPaymentInfo({
+        orderId: order.id ?? orderId,
+        amount: order.total_amount,
+        method: order.payment_method,
+        approvedAt: order.updated_at ?? new Date().toISOString(),
+      })
       setOrderCreated(true)
 
-      // 쿠폰 사용 처리
-      if (pendingData.selectedCoupon && savedOrder.id) {
-        const discountAmount = pendingData.discountAmount || 0
-        applyCoupon(pendingData.selectedCoupon.id, savedOrder.id, discountAmount)
-        console.log('쿠폰이 사용 처리되었습니다.')
+      // 쿠폰은 아직 브라우저에만 저장되어 있어(서버 검증 불가) 결제 금액에는 반영하지 않고 사용 표시만 한다
+      const pending = sessionStorage.getItem('pendingPayment')
+      if (pending) {
+        const { selectedCoupon, discountAmount } = JSON.parse(pending)
+        if (selectedCoupon) applyCoupon(selectedCoupon.id, orderId, discountAmount ?? 0)
+        sessionStorage.removeItem('pendingPayment')
       }
-      
-      // 장바구니 비우기 (CartContext 사용)
-      clearCart()
-      console.log('장바구니가 자동으로 비워졌습니다.')
 
-      // 임시 주문 데이터 제거
-      sessionStorage.removeItem('pendingOrderData')
-      
-      // 로컬스토리지에 주문 정보 저장 (기존 호환성을 위해)
-      const existingOrders = JSON.parse(localStorage.getItem('orders') || '[]')
-      const newOrder = {
-        id: savedOrder.id || paymentData.orderId, // savedOrder.id가 없으면 paymentData.orderId 사용
-        orderId: paymentData.orderId,
-        amount: paymentData.amount,
-        status: '결제완료',
-        date: new Date().toISOString(),
-        payment_key: paymentData.paymentKey,
-        items: savedOrder.items
-      }
-      
-      existingOrders.push(newOrder)
-      localStorage.setItem('orders', JSON.stringify(existingOrders))
-      
-      // 주문 완료 알림 (한 번만 표시)
-      if (!sessionStorage.getItem(`alerted_${paymentData.paymentKey}`)) {
-        alert('주문이 성공적으로 완료되었습니다!')
-        sessionStorage.setItem(`alerted_${paymentData.paymentKey}`, 'true')
-      }
-      
-      // 바로 마이페이지로 이동
-      navigate('/mypage')
-      
-    } catch (error) {
-      console.error('주문 생성 중 오류 발생:', error)
-      alert('결제는 완료되었지만 주문 생성에 실패했습니다. 고객센터에 문의해주세요.')
+      clearCart()
+      setLoading(false)
     }
-  }
+
+    confirm()
+  }, []) // 결제 승인은 페이지 진입 시 한 번만
 
   if (loading) {
     return (
@@ -159,6 +80,26 @@ const PaymentSuccessPage: React.FC = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-black mx-auto mb-4"></div>
           <p className="text-gray-600">결제 정보를 확인하고 있습니다...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (errorMessage) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md px-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">결제 승인에 실패했습니다</h2>
+          <p className="text-gray-600 mb-2">{errorMessage}</p>
+          <p className="text-gray-500 text-sm mb-8">결제가 완료되지 않았으며, 승인된 금액이 있다면 자동으로 취소됩니다.</p>
+          <div className="flex gap-3 justify-center">
+            <Link to="/cart" className="inline-block px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors">
+              장바구니로 돌아가기
+            </Link>
+            <Link to="/" className="inline-block px-6 py-3 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 transition-colors">
+              홈으로
+            </Link>
+          </div>
         </div>
       </div>
     )

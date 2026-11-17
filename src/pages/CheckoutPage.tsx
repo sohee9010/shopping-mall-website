@@ -5,7 +5,7 @@ import { useCartContext } from '../context/CartContext'
 import { useCouponContext } from '../context/CouponContext'
 import { useUser } from '../context/UserContext'
 import { tossPaymentsService, PaymentData } from '../services/tossPayments'
-import { Order, OrderItem } from '../services/orderService'
+import { Order, OrderItem, createOrder, cancelPendingOrder } from '../services/orderService'
 
 const CheckoutPage: React.FC = () => {
     const location = useLocation()
@@ -117,39 +117,10 @@ const CheckoutPage: React.FC = () => {
         }))
     }
 
-    // 주문 데이터 생성 함수 (로그인 사용자 + 비회원 지원)
-    const createOrderData = async (_orderId: string): Promise<Omit<Order, 'id' | 'created_at' | 'updated_at'> | null> => {
-        try {
-            const { supabase } = await import('../services/supabase')
-
-            let userId: string
-
-            console.log('주문 생성 - 사용자 정보 (useUser):', currentUser)
-
-            if (currentUser && currentUser.id) {
-                // 로그인 사용자: 기존 ID 사용 (users 테이블에 이미 존재한다고 가정)
-                userId = currentUser.id
-                console.log('로그인 사용자 주문 - 기존 ID 사용:', userId)
-            } else {
-                // 비회원: 원래 PaymentSuccessPage 방식 사용 (localStorage 기반)
-                console.log('비회원 주문 - localStorage에서 임시 ID 생성')
-
-                // 임시로 기존 사용자 중 하나를 사용 (실제로는 비회원 테이블을 별도로 만들거나 다른 방식 필요)
-                const existingUsers = await supabase
-                    .from('users')
-                    .select('id')
-                    .limit(1)
-                    .single()
-
-                if (existingUsers.data) {
-                    userId = existingUsers.data.id
-                    console.log('비회원 주문 - 임시로 기존 사용자 ID 사용:', userId)
-                } else {
-                    console.error('사용 가능한 사용자 ID를 찾을 수 없습니다.')
-                    return null
-                }
-            }
-
+    // 주문 데이터 생성 (로그인 회원 전용)
+    // 원본은 비회원이 주문하면 users 테이블의 '아무 회원 한 명'의 id로 주문을 만들었다(다른 사람 주문 내역에 섞임).
+    // 비회원 주문은 지원하지 않기로 했으므로 로그인을 요구한다. 실제 주문자는 서버가 로그인 토큰으로 정한다.
+    const createOrderData = (userId: string): Omit<Order, 'id' | 'created_at' | 'updated_at'> => {
             // 주문 아이템 생성
             const orderItemsData: OrderItem[] = orderItems.map((item) => ({
                 product_id: item.product.id,
@@ -169,10 +140,9 @@ const CheckoutPage: React.FC = () => {
             return {
                 user_id: userId,
                 order_date: new Date().toISOString(),
-                status: '주문접수', // 초기 상태
-                total_amount: finalPrice,
+                status: '결제대기', // 서버가 '결제대기'로 만들고, 결제 승인 후 '결제완료'가 된다
+                total_amount: finalPrice, // 참고용. 실제 금액은 서버가 DB 가격으로 다시 계산한다
                 payment_method: paymentMethod === 'card' ? '신용카드' : paymentMethod === 'kakao' ? '카카오페이' : '무통장입금',
-                payment_key: '', // 결제 성공 후 업데이트
                 items: orderItemsData,
                 shipping_address: customerInfo.address,
                 recipient_name: customerInfo.name,
@@ -180,10 +150,6 @@ const CheckoutPage: React.FC = () => {
                 tracking_number: `TN${Date.now()}`,
                 estimated_delivery: estimatedDelivery.toISOString()
             }
-        } catch (error) {
-            console.error('주문 데이터 생성 중 오류:', error)
-            return null
-        }
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -199,37 +165,42 @@ const CheckoutPage: React.FC = () => {
             return
         }
 
+        if (!currentUser?.id) {
+            alert('주문하려면 로그인이 필요합니다.')
+            navigate('/login')
+            return
+        }
+
+        // 쿠폰은 아직 브라우저에만 저장되어 있어 서버가 검증할 수 없으므로 결제 금액에 반영하지 않는다 (쿠폰 DB화 예정)
+        if (selectedCoupon && !confirm('현재 쿠폰 할인은 결제 금액에 반영되지 않습니다. 할인 없이 결제를 진행할까요?')) {
+            return
+        }
+
         setIsProcessing(true)
+        let pendingOrderId: string | null = null
 
         try {
-            const orderId = tossPaymentsService.generateOrderId()
             const orderName = orderItems.length === 1
                 ? orderItems[0].product.name
                 : `${orderItems[0].product.name} 외 ${orderItems.length - 1}건`
 
-            // 1. 주문 데이터 준비 (결제 성공 후 생성할 데이터)
-            const orderData = await createOrderData(orderId)
-            if (!orderData) {
-                alert('주문 데이터 생성에 실패했습니다. 다시 시도해주세요.')
+            // 1. 결제 전에 '결제대기' 주문을 서버에서 만든다 (재고 확보 + 서버가 금액 계산)
+            const pendingOrder = await createOrder(createOrderData(currentUser.id))
+            if (!pendingOrder?.id) {
+                alert('주문을 생성하지 못했습니다. 재고가 부족하거나 일시적인 오류일 수 있습니다.')
                 return
             }
+            pendingOrderId = pendingOrder.id
 
-            console.log('주문 데이터가 준비되었습니다:', orderData)
-
-            // 2. 주문 데이터를 세션 스토리지에 임시 저장 (결제 성공 시 생성할 데이터)
-            sessionStorage.setItem('pendingOrderData', JSON.stringify({
-                orderData,
-                selectedCoupon,
-                discountAmount,
-                originalAmount: totalPrice
-            }))
+            // 2. 결제 성공 후 쿠폰 사용 표시용 정보만 임시 저장 (주문 데이터는 이미 서버에 있다)
+            sessionStorage.setItem('pendingPayment', JSON.stringify({ orderId: pendingOrder.id, selectedCoupon, discountAmount }))
 
             const cleanPhone = customerInfo.phone.replace(/[^0-9]/g, '')
-            console.log('결제 요청 전화번호 (하이픈 제거):', cleanPhone)
 
+            // 3. 서버가 만든 주문번호와 서버가 계산한 금액으로 결제창을 연다
             const paymentData: PaymentData = {
-                amount: finalPrice, // 할인된 최종 금액으로 결제
-                orderId,
+                amount: pendingOrder.total_amount,
+                orderId: pendingOrder.id,
                 orderName,
                 customerName: customerInfo.name,
                 customerEmail: customerInfo.email,
@@ -253,51 +224,18 @@ const CheckoutPage: React.FC = () => {
                     await tossPaymentsService.requestPayment(paymentData)
             }
         } catch (error) {
+            // 결제창을 닫았거나(USER_CANCEL) 결제창 호출에 실패: 확보해 둔 재고를 돌려놓는다
             console.error('결제 요청 실패:', error)
-            alert('결제 요청 중 오류가 발생했습니다. 다시 시도해주세요.')
+            if (pendingOrderId) {
+                await cancelPendingOrder(pendingOrderId)
+                sessionStorage.removeItem('pendingPayment')
+            }
+            const code = (error as { code?: string })?.code
+            if (code !== 'USER_CANCEL') {
+                alert('결제 요청 중 오류가 발생했습니다. 다시 시도해주세요.')
+            }
         } finally {
             setIsProcessing(false)
-        }
-    }
-
-    // 개발자용 결제 완료 테스트 함수
-    const handleTestPaymentSuccess = async () => {
-        if (!customerInfo.name || !customerInfo.phone || !customerInfo.address) {
-            alert('필수 정보를 모두 입력해주세요.')
-            return
-        }
-
-        if (!agreeTerms) {
-            alert('구매 약관에 동의해주세요.')
-            return
-        }
-
-        try {
-            const orderId = tossPaymentsService.generateOrderId()
-            const paymentKey = `test_payment_${Date.now()}`
-
-            // 1. 테스트용 주문 데이터 준비
-            const orderData = await createOrderData(orderId)
-            if (!orderData) {
-                alert('주문 데이터 생성에 실패했습니다.')
-                return
-            }
-
-            console.log('테스트 주문 데이터가 준비되었습니다:', orderData)
-
-            // 2. 주문 데이터를 세션 스토리지에 임시 저장
-            sessionStorage.setItem('pendingOrderData', JSON.stringify({
-                orderData,
-                selectedCoupon,
-                discountAmount,
-                originalAmount: totalPrice
-            }))
-
-            // 3. 결제 성공 페이지로 이동 (테스트용 파라미터와 함께)
-            navigate(`/payment/success?paymentKey=${paymentKey}&orderId=${orderId}&amount=${finalPrice}`)
-        } catch (error) {
-            console.error('테스트 주문 생성 실패:', error)
-            alert('테스트 주문 생성에 실패했습니다.')
         }
     }
 
@@ -596,18 +534,6 @@ const CheckoutPage: React.FC = () => {
                                     disabled={isProcessing}
                                 >
                                     {isProcessing ? '결제 진행 중...' : `₩${formatPrice(finalPrice)} 결제하기`}
-                                </button>
-                            </div>
-
-                            {/* 개발자용 테스트 버튼 */}
-                            <div className="border-t pt-6 text-center">
-                                <p className="text-sm text-gray-500 mb-3">🔧 개발자 테스트용</p>
-                                <button
-                                    type="button"
-                                    onClick={handleTestPaymentSuccess}
-                                    className="px-6 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors"
-                                >
-                                    결제 완료 테스트
                                 </button>
                             </div>
                         </form>
