@@ -194,23 +194,6 @@ const OrderTracking: React.FC = () => {
                         <div className="mb-10">
                             <h1 className="text-3xl font-bold text-gray-800 m-0 mb-3">주문확인 / 배송조회</h1>
                             <p className="text-base text-gray-600 m-0">고객님의 주문내역을 확인하실 수 있습니다.</p>
-                            
-                            <div className="mt-4">
-                                {/* 로컬스토리지 초기화 버튼 */}
-                                <button
-                                    onClick={() => {
-                                        if (confirm('로컬스토리지의 모든 주문 데이터를 삭제하시겠습니까?')) {
-                                            // localStorage.removeItem('orders')
-                                            // localStorage.removeItem('processedPayments')
-                                            setOrders([])
-                                            alert('모든 주문 데이터가 삭제되었습니다.')
-                                        }
-                                    }}
-                                    className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700 transition-colors"
-                                >
-                                    데이터 초기화
-                                </button>
-                            </div>
                         </div>
 
                         {/* 검색 필터 */}
