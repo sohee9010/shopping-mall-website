@@ -39,15 +39,46 @@ async function productByName(client, name) {
 //   - 0003 이후: DB 함수 place_order (서버가 가격 재계산 + 조건부 재고 차감, 한 트랜잭션)
 //   - 그 이전(원본): 아래 createOrderLikeOriginal
 async function createOrderAsApp(client, orderData) {
-  const { data, error } = await client.rpc('place_order', {
+  const args = {
     p_items: orderData.items.map(i => ({ product_id: i.product_id, quantity: i.quantity, size: i.size ?? null, color: i.color ?? null })),
     p_shipping_address: orderData.shipping_address,
     p_recipient_name: orderData.recipient_name,
     p_recipient_phone: orderData.recipient_phone,
     p_payment_method: orderData.payment_method,
-    p_payment_key: orderData.payment_key,
-  })
+  }
+  // 0005 이후: 결제 키 없이 '결제대기' 주문 생성 / 0003~0004: 결제 키를 받아 바로 '결제완료' 생성
+  let { data, error } = await client.rpc('place_order', args)
+  if (error?.code === 'PGRST202') ({ data, error } = await client.rpc('place_order', { ...args, p_payment_key: orderData.payment_key }))
   if (error?.code === 'PGRST202') return createOrderLikeOriginal(client, orderData) // 함수 없음 = 원본 상태
+  return error ? { ok: false, error: error.message } : { ok: true, order: data }
+}
+
+// 결제 성공 페이지가 하는 일: 결제창에서 받은 값으로 승인 요청
+//   - 0005 이후: Edge Function confirm-payment 호출 (supabase functions serve 실행 필요)
+//   - 그 이전: 주문이 이미 '결제완료'로 만들어져 있어 승인 단계가 없다
+async function confirmLikeSuccessPage(client, { paymentKey, orderId, amount }) {
+  const token = (await client.auth.getSession()).data.session.access_token
+  const res = await fetch(`${URL}/functions/v1/confirm-payment`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ paymentKey, orderId, amount }),
+  })
+  const text = await res.text()
+  let body
+  try { body = JSON.parse(text) } catch { body = { code: text } }
+  return { status: res.status, body }
+}
+
+// Toss가 승인했다고 가정하고 DB 기록만 수행 (Edge Function이 승인 후 호출하는 서버 전용 함수).
+// 결제 이후 흐름(취소 요청·승인·재고 복구)을 Toss 없이 검사하기 위해 로컬 관리자 키로 직접 호출한다
+const LOCAL_SECRET = process.env.SUPABASE_LOCAL_SECRET_KEY
+async function markPaidForTest(orderId, amount) {
+  const admin = createClient(URL, LOCAL_SECRET, { auth: { persistSession: false } })
+  const { data, error } = await admin.rpc('complete_order_payment', {
+    p_order_id: orderId, p_payment_key: `test_paid_${orderId}`, p_amount: amount, p_method: '카드',
+    p_status: 'DONE', p_approved_at: new Date().toISOString(), p_raw: { test: true },
+  })
+  if (error?.code === 'PGRST202') return { ok: true } // 0005 이전: 주문이 이미 결제완료
   return error ? { ok: false, error: error.message } : { ok: true, order: data }
 }
 
@@ -130,11 +161,19 @@ await check('P1-b', '결제 없이 "결제완료" 주문 생성 (가짜 paymentK
       items: [{ product_id: knit.id, name: knit.name, price: knit.price, quantity: 1, brand: knit.brand, image: '' }],
       shipping_address: '재현 실험', recipient_name: '재현', recipient_phone: '010-0000-0000',
     })
+    if (!res.ok) return { reproduced: false, actual: `주문 생성 거부: ${res.error}` }
+    if (res.order.status === '결제완료') {
+      return { reproduced: true, actual: `결제한 적 없는 paymentKey로 status='결제완료' 주문 생성 성공 (결제사 승인 확인 없음)` }
+    }
+    // 0005 이후: 결제 성공 페이지처럼 가짜 키로 승인 요청
+    const confirm = await confirmLikeSuccessPage(client, { paymentKey: 'FAKE_PAYMENT_KEY_never_paid', orderId: res.order.id, amount: res.order.total_amount })
+    const { data: after } = await client.from('orders').select('status').eq('id', res.order.id).single()
+    if (confirm.status === 404 && confirm.body.code?.includes('Function not found')) {
+      throw new Error('승인 함수가 실행 중이 아닙니다. 다른 터미널에서 npx supabase functions serve --env-file supabase/functions/.env 실행 필요')
+    }
     return {
-      reproduced: res.ok && res.order.status === '결제완료',
-      actual: res.ok
-        ? `결제한 적 없는 paymentKey로 status='${res.order.status}' 주문 생성 성공 (결제사 승인 확인 없음)`
-        : `주문 생성 거부: ${res.error}`,
+      reproduced: after?.status === '결제완료',
+      actual: `'${res.order.status}' 주문 생성 → 가짜 paymentKey로 승인 요청 → HTTP ${confirm.status} ${confirm.body.code ?? ''} → 주문 상태 '${after?.status}'`,
     }
   })
 
@@ -314,8 +353,13 @@ await works('고객: 본인 프로필·주문 조회, 장바구니 담기', asyn
   const { data: me } = await client.from('users').select('name').eq('id', user.id).single()
   const { data: orders } = await client.from('orders').select('id').eq('user_id', user.id)
   const toner = await productByName(client, 'DEWLAB 히알루론 수분 토너 200ml')
-  const { error } = await client.from('user_carts').upsert(
-    { user_id: user.id, product_id: toner.id, size: null, color: null, quantity: 1 }, { onConflict: 'user_id,product_id,size,color' })
+  // 앱(src/services/cartService.ts cartItemToDbItem + addItemToUserCart)이 보내는 것과 같은 형태로 담는다.
+  // 최소 데이터로만 테스트했다가 앱이 함께 보내는 상품명·가격·이미지·브랜드 컬럼 누락을 놓친 적이 있다(0006)
+  const { error } = await client.from('user_carts').upsert({
+    user_id: user.id, product_id: toner.id, product_name: toner.name, product_price: toner.price,
+    product_image: toner.image_urls?.[0] ?? '', quantity: 1, size: undefined, color: undefined, brand: toner.brand,
+    is_selected: true, updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id,product_id,size,color', ignoreDuplicates: false })
   return { ok: !!me && orders?.length > 0 && !error, detail: `프로필 ${me?.name ?? '없음'}, 주문 ${orders?.length ?? 0}건, 장바구니 ${error ? '실패: ' + error.message : '성공'}` }
 })
 await works('입점사(LUNELLE): 자기 브랜드 상품 등록·수정', async () => {
@@ -345,6 +389,8 @@ await works('주문: 정상 주문 → 고객 취소 요청 → 본사 취소 �
     shipping_address: '정상 확인', recipient_name: '정상', recipient_phone: '010-0000-0000',
   })
   if (!placed.ok) return { ok: false, detail: `주문 실패: ${placed.error}` }
+  const paid = await markPaidForTest(placed.order.id, placed.order.total_amount) // Toss 승인 완료를 가정
+  if (!paid.ok) return { ok: false, detail: `결제 완료 처리 실패: ${paid.error}` }
   const afterOrder = await productByName(client, p.name)
   const { error: reqErr } = await client.from('orders').update({ status: '취소요청', cancel_reason: '정상 확인' }).eq('id', placed.order.id)
   const hq = (await login('hq@etage.test')).client
@@ -356,6 +402,38 @@ await works('주문: 정상 주문 → 고객 취소 요청 → 본사 취소 �
     detail: `재고 ${p.stock} → 주문 후 ${afterOrder.stock} → 취소 승인 후 ${afterCancel.stock}, ` +
       `취소 요청 ${reqErr ? '실패: ' + reqErr.message : '성공'}, 승인 ${apprErr ? '실패: ' + apprErr.message : '성공'}`,
   }
+})
+await works('결제: 결제창에서 취소하고 돌아오면 확보했던 재고 복구', async () => {
+  const { client, user } = await login('vip@etage.test')
+  const p = await productByName(client, 'ORBE 14K 체인 네크리스')
+  const placed = await createOrderAsApp(client, {
+    user_id: user.id, total_amount: p.price, payment_method: '카드', payment_key: 'regression_user_cancel',
+    items: [{ product_id: p.id, name: p.name, price: p.price, quantity: 1, brand: p.brand }],
+    shipping_address: '정상 확인', recipient_name: '정상', recipient_phone: '010-0000-0000',
+  })
+  if (!placed.ok) return { ok: false, detail: `주문 실패: ${placed.error}` }
+  if (placed.order.status !== '결제대기') return { ok: true, detail: '0005 이전 구조(결제대기 단계 없음) — 해당 없음' }
+  const mid = await productByName(client, p.name)
+  const { error } = await client.rpc('cancel_pending_order', { p_order_id: placed.order.id })
+  const end = await productByName(client, p.name)
+  const { data: o } = await client.from('orders').select('status').eq('id', placed.order.id).single()
+  return {
+    ok: !error && mid.stock === p.stock - 1 && end.stock === p.stock && o.status === '결제취소',
+    detail: `재고 ${p.stock} → 결제대기 ${mid.stock} → 결제창 취소 후 ${end.stock}, 주문 상태 '${o.status}'${error ? ', 오류: ' + error.message : ''}`,
+  }
+})
+await works('보안 규칙: 고객은 결제대기 주문을 스스로 결제완료로 바꿀 수 없음', async () => {
+  const { client, user } = await login('customer@etage.test')
+  const p = await productByName(client, 'DEWLAB 세라마이드 장벽 크림 50ml')
+  const placed = await createOrderAsApp(client, {
+    user_id: user.id, total_amount: p.price, payment_method: '카드', payment_key: 'regression_self_paid',
+    items: [{ product_id: p.id, name: p.name, price: p.price, quantity: 1, brand: p.brand }],
+    shipping_address: '정상 확인', recipient_name: '정상', recipient_phone: '010-0000-0000',
+  })
+  if (!placed.ok) return { ok: false, detail: `주문 실패: ${placed.error}` }
+  if (placed.order.status !== '결제대기') return { ok: true, detail: '0005 이전 구조(결제대기 단계 없음) — 해당 없음' }
+  const { error } = await client.from('orders').update({ status: '결제완료' }).eq('id', placed.order.id)
+  return { ok: !!error, detail: error ? `거부됨: ${error.message}` : '결제완료로 변경 성공 (문제)' }
 })
 await works('보안 규칙: 고객은 자기 회원 등급을 바꿀 수 없음 (배송비 무료 우회 방지)', async () => {
   const { client, user } = await login('customer@etage.test')

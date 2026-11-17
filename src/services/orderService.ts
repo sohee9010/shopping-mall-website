@@ -15,7 +15,8 @@ export interface Order {
   id?: string
   user_id: string
   order_date: string
-  status: '주문접수' | '결제완료' | '상품준비' | '배송중' | '배송완료' | '주문취소' | '반품신청' | '반품완료'
+  // 결제대기 -> 결제완료(승인) | 결제실패(승인 거절) | 결제취소(결제창에서 취소)
+  status: '결제대기' | '결제실패' | '결제취소' | '주문접수' | '결제완료' | '상품준비' | '배송중' | '배송완료' | '취소요청' | '주문취소' | '반품신청' | '반품완료'
   total_amount: number
   payment_method: string
   payment_key?: string
@@ -31,7 +32,35 @@ export interface Order {
   return_reason?: string
 }
 
-// 주문 생성
+// 결제 승인 요청 결과
+export type ConfirmPaymentResult =
+  | { ok: true; order: Order }
+  | { ok: false; code: string; message: string }
+
+// 결제 승인: Toss 결제창에서 돌아온 값을 서버(Edge Function confirm-payment)에 보내 승인을 요청한다.
+// 서버가 주문 소유자·상태·금액을 DB와 대조하고 Toss 승인 API를 호출한다. 브라우저 값은 '요청'일 뿐 판단 근거가 아니다.
+export const confirmPayment = async (params: { paymentKey: string; orderId: string; amount: number }): Promise<ConfirmPaymentResult> => {
+  const { data, error } = await supabase.functions.invoke('confirm-payment', { body: params })
+  if (error) {
+    // 서버가 돌려준 실패 사유(code, message)를 꺼낸다
+    let detail: { code?: string; message?: string } = {}
+    try {
+      detail = await (error as { context?: Response }).context?.json() ?? {}
+    } catch {
+      // 응답 본문이 JSON이 아니면 기본 메시지 사용
+    }
+    return { ok: false, code: detail.code ?? 'CONFIRM_FAILED', message: detail.message ?? '결제 승인에 실패했습니다' }
+  }
+  return { ok: true, order: data.order as Order }
+}
+
+// 결제창에서 결제를 취소하고 돌아온 경우: 본인의 '결제대기' 주문을 취소해 확보했던 재고를 돌려놓는다
+export const cancelPendingOrder = async (orderId: string): Promise<void> => {
+  const { error } = await supabase.rpc('cancel_pending_order', { p_order_id: orderId })
+  if (error) console.error('결제대기 주문 취소 실패:', error.message)
+}
+
+// 주문 생성 ('결제대기' 상태로 생성되고, 결제 승인 후 '결제완료'가 된다)
 // DB 함수 place_order가 하나의 트랜잭션으로 처리한다 (supabase/migrations/*_order_transaction.sql)
 //   - 상품 가격·이름·브랜드와 배송비를 서버에서 다시 계산한다. 여기서 보낸 total_amount·price는 사용하지 않는다
 //   - 재고는 "남은 재고 >= 주문 수량"일 때만 차감되어, 동시에 주문해도 재고보다 많이 팔리지 않는다
@@ -50,7 +79,6 @@ export const createOrder = async (orderData: Omit<Order, 'id' | 'created_at' | '
       p_recipient_name: orderData.recipient_name,
       p_recipient_phone: orderData.recipient_phone,
       p_payment_method: orderData.payment_method,
-      p_payment_key: orderData.payment_key ?? null,
     })
 
     if (error) {
@@ -67,12 +95,16 @@ export const createOrder = async (orderData: Omit<Order, 'id' | 'created_at' | '
 }
 
 // 사용자별 주문 목록 조회
+// 고객 화면에는 결제가 끝난 주문만 보여준다 (결제대기·결제실패·결제취소는 결제 과정의 기록일 뿐 주문 내역이 아님)
+export const UNPAID_STATUSES = ['결제대기', '결제실패', '결제취소'] as const
+
 export const getUserOrders = async (userId: string): Promise<Order[]> => {
   try {
     const { data, error } = await supabase
       .from('orders')
       .select('*')
       .eq('user_id', userId)
+      .not('status', 'in', '("' + UNPAID_STATUSES.join('","') + '")')
       .order('created_at', { ascending: false })
 
     if (error) {

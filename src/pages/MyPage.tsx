@@ -316,7 +316,7 @@ const MyPage: React.FC = () => {
                     }
 
                     recentOrders.forEach((order: Order) => {
-                        status_counts[order.status]++
+                        if (order.status in status_counts) status_counts[order.status as keyof typeof status_counts]++
                     })
 
                     setOrderStats({
