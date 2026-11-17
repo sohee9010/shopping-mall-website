@@ -1,3 +1,5 @@
+import type { RoleInfo } from '../../services/roleService';
+
 // 사용자 관련 타입
 export interface User {
   id: string;
@@ -18,6 +20,9 @@ export interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string; data?: any }>;
   signUp: (email: string, password: string, userData: any) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<{ success: boolean; error?: string }>;
+  isAdmin: () => boolean;
+  // DB(user_roles)에서 조회한 역할. undefined = 조회 중, null = 비로그인
+  roleInfo: RoleInfo | null | undefined;
 }
 
 // 레이아웃 프롭스

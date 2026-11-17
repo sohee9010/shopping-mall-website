@@ -22,15 +22,15 @@ import { LayoutProps, MenuItem } from '../../types';
 const Layout = ({ children, userRole }: LayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, signOut, roleInfo } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [brandName, setBrandName] = useState('');
   const [unreadNoticesCount, setUnreadNoticesCount] = useState(0);
 
   // 더미 브랜드 데이터 설정
   useEffect(() => {
-    setBrandName(user?.user_metadata?.name || '본사 관리자');
-  }, [user?.user_metadata?.name]);
+    setBrandName(roleInfo?.brandName || user?.user_metadata?.name || '본사 관리자'); // 표시용 이름
+  }, [user?.user_metadata?.name, roleInfo?.brandName]);
 
   // 읽지 않은 알림 개수 가져오기
   useEffect(() => {
@@ -106,9 +106,8 @@ const Layout = ({ children, userRole }: LayoutProps) => {
     }
   };
 
-  const isAdmin = () => {
-    return user?.user_metadata?.role === 'admin' || user?.user_metadata?.role === 'hq';
-  };
+  // 본사 여부는 DB 역할 기준
+  const isAdmin = () => roleInfo?.role === 'hq';
 
   return (
     <div className="layout">

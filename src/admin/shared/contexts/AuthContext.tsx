@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, AuthContextType } from '../../types';
+import { getMyRole } from '../../../services/roleService';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -15,7 +16,28 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
+  // 역할·브랜드: DB(user_roles)에서 조회. undefined = 아직 조회 중
+  const [roleInfo, setRoleInfo] = useState(undefined);
+
+  // 로그인 사용자가 바뀔 때마다 DB에서 역할을 다시 조회한다 (user_metadata는 사용자가 바꿀 수 있어 신뢰하지 않음)
+  useEffect(() => {
+    let cancelled = false;
+    if (!user) {
+      setRoleInfo(null);
+      return;
+    }
+    setRoleInfo(undefined);
+    getMyRole().then((info) => {
+      if (!cancelled) setRoleInfo(info);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  // 역할 조회가 끝날 때까지는 로딩으로 취급 (권한 확인 전에 화면이 잘못 열리는 것 방지)
+  const loading = authLoading || (!!user && roleInfo === undefined);
 
   // Supabase 인증 상태 초기화
   useEffect(() => {
@@ -31,7 +53,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } catch (error) {
         console.error('세션 확인 중 오류:', error);
       } finally {
-        setLoading(false);
+        setAuthLoading(false);
       }
     };
 
@@ -47,7 +69,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
         }
-        setLoading(false);
+        setAuthLoading(false);
       }
     );
 
@@ -69,7 +91,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (data.user) {
-        console.log('로그인 성공:', data.user.email, 'Role:', data.user.user_metadata?.role);
+        console.log('로그인 성공:', data.user.email);
         setUser(data.user);
         return { success: true, data };
       } else {
@@ -117,9 +139,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const isAdmin = () => {
-    return user?.user_metadata?.role === 'admin' || user?.user_metadata?.role === 'hq';
-  };
+  // 본사 관리자 여부 (DB 역할 기준)
+  const isAdmin = () => roleInfo?.role === 'hq';
 
   const value = {
     user,
@@ -127,7 +148,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     signIn,
     signUp,
     signOut,
-    isAdmin
+    isAdmin,
+    roleInfo
   };
 
   return (
