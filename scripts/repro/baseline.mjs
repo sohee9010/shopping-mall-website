@@ -52,6 +52,17 @@ async function createOrderLikeOriginal(client, orderData) {
   return { ok: true, order: data }
 }
 
+// db reset 직후에는 API 컨테이너가 재시작 중이라 첫 요청이 실패할 수 있다. 준비될 때까지 기다린다
+async function waitForApi() {
+  for (let i = 0; i < 30; i++) {
+    const { error } = await newClient().from('categories').select('id').limit(1)
+    if (!error) return
+    await new Promise(r => setTimeout(r, 1000))
+  }
+  throw new Error('로컬 Supabase API가 30초 안에 준비되지 않았습니다')
+}
+await waitForApi()
+
 const results = []
 async function check(id, title, location, expected, run) {
   process.stdout.write(`[${id}] ${title} ... `)
@@ -78,10 +89,11 @@ await check('P1', '결제 없이 "결제완료" 주문 생성 + 금액 임의 �
       items: [{ product_id: coat.id, name: coat.name, price: coat.price, quantity: 1, brand: coat.brand, image: '' }],
       shipping_address: '재현 실험', recipient_name: '재현', recipient_phone: '010-0000-0000',
     })
+    const after = await productByName(client, coat.name)
     return {
       reproduced: res.ok,
       actual: res.ok
-        ? `정가 ${coat.price.toLocaleString()}원 코트를 결제 없이 total_amount=100원, status=결제완료로 주문 생성 성공 (가짜 paymentKey 그대로 저장, 재고도 차감됨)`
+        ? `정가 ${coat.price.toLocaleString()}원 코트를 결제 없이 total_amount=100원, status=결제완료로 주문 생성 성공 (가짜 paymentKey 그대로 저장). 재고 ${coat.stock} → ${after.stock}`
         : `주문 생성 거부: ${res.error}`,
     }
   })
@@ -104,8 +116,10 @@ await check('P3', '재고 1개 상품에 동시 주문 10건 (초과 판매 + �
     return {
       reproduced: succeeded > before.stock,
       actual: `재고 ${before.stock}개인데 주문 ${succeeded}건 모두 성공 → ${succeeded - before.stock}건 초과 판매. ` +
-        `재고 ${before.stock} → ${after.stock}, 판매량 ${before.sales} → ${after.sales} ` +
-        `(정상이면 +${succeeded}여야 하나 +${after.sales - before.sales}: 동시 갱신으로 판매량 유실)`,
+        `재고 ${before.stock} → ${after.stock}, 판매량 ${before.sales} → ${after.sales}` +
+        (after.sales === before.sales
+          ? ' (고객의 상품 수정 권한이 막혀 클라이언트 재고 차감이 반영되지 않음. 주문 자체는 여전히 재고 확인 없이 접수됨)'
+          : ` (정상이면 +${succeeded}여야 하나 +${after.sales - before.sales}: 동시 갱신으로 판매량 유실)`),
     }
   })
 
@@ -117,10 +131,22 @@ await check('P2', '일반 고객이 스스로 본사 관리자(hq) 권한 획득
     const { client } = await login('customer@etage.test')
     const { data, error } = await client.auth.updateUser({ data: { role: 'hq' } })
     if (error) return { reproduced: false, actual: `변경 거부: ${error.message}` }
-    const role = data.user.user_metadata.role
-    // 원본 관리자 판단 로직 그대로: role === 'admin' || role === 'hq'
-    const isAdmin = role === 'admin' || role === 'hq'
-    return { reproduced: isAdmin, actual: `auth.updateUser({ data: { role: 'hq' } }) 성공 → user_metadata.role='${role}', 원본 isAdmin 판정 = ${isAdmin}` }
+    const metaRole = data.user.user_metadata.role
+    // 원본 관리자 판단 로직: user_metadata.role === 'admin' || 'hq'
+    const originalIsAdmin = metaRole === 'admin' || metaRole === 'hq'
+    // DB가 실제로 인정하는 역할 (0002 이후). 함수가 없으면 원본 상태이므로 메타데이터 판정을 그대로 따른다
+    const { data: roleRows, error: roleError } = await client.rpc('get_my_role')
+    const dbRole = roleError ? null : roleRows?.[0]?.role
+    // 본사만 가능해야 하는 행동: 다른 회원 정보 조회
+    const { data: others } = await client.from('users').select('id').neq('id', data.user.id)
+    const canActAsHq = (others?.length ?? 0) > 0
+    const reproduced = dbRole === null ? (originalIsAdmin || canActAsHq) : (dbRole === 'hq' || canActAsHq)
+    return {
+      reproduced,
+      actual: `auth.updateUser({ data: { role: 'hq' } }) 성공 → user_metadata.role='${metaRole}' (원본 판정 isAdmin=${originalIsAdmin}). ` +
+        (dbRole === null ? 'DB 역할 함수 없음(원본 상태). ' : `DB가 인정하는 역할(get_my_role) = '${dbRole}'. `) +
+        `본사 전용 행동(다른 회원 조회) → ${canActAsHq ? `${others.length}명 조회 성공` : '0명 (거부됨)'}`,
+    }
   })
 
 // ---------------------------------------------------------------------
@@ -136,8 +162,8 @@ await check('P14', '입점사 LUNELLE이 브랜드를 GREYMONT로 바꿔 남의 
     const visible = (orders ?? []).filter(o => o.items?.some(it => it.brand === merchantBrand))
     return {
       reproduced: merchantBrand === 'GREYMONT' && visible.length > 0,
-      actual: `user_metadata.brand를 'GREYMONT'로 변경 성공 → GREYMONT 주문 ${visible.length}건 조회 ` +
-        `(수령인 ${visible.map(o => o.recipient_name + ' ' + o.recipient_phone).join(', ')})`,
+      actual: `user_metadata.brand를 'GREYMONT'로 변경 성공 → GREYMONT 주문 ${visible.length}건 조회` +
+        (visible.length ? ` (수령인 ${visible.map(o => o.recipient_name + ' ' + o.recipient_phone).join(', ')})` : ' (거부됨)'),
     }
   })
 
@@ -153,8 +179,8 @@ await check('RLS', '로그인 없이 회원 개인정보 조회 + 상품 가격 
     await anon.from('products').update({ price: target.price }).eq('id', target.id) // 원래 가격으로 되돌림
     return {
       reproduced: (users?.length ?? 0) > 0 || changed?.price === 1,
-      actual: `비로그인으로 회원 ${users?.length ?? 0}명의 이메일·전화번호·주소 조회 성공, ` +
-        `립스틱 가격 ${target.price.toLocaleString()}원 → ${changed?.price ?? '변경 실패'}원 변경 성공 (실험 후 복구)`,
+      actual: `비로그인 회원 정보 조회 → ${users?.length ? `${users.length}명의 이메일·전화번호·주소 조회 성공` : '0명 (거부됨)'}, ` +
+        `립스틱 가격 변경 → ${changed?.price === 1 ? `${target.price.toLocaleString()}원 → 1원 변경 성공 (실험 후 복구)` : '거부됨'}`,
     }
   })
 
@@ -218,9 +244,71 @@ await check('P13', '두 입점사가 동시에 상품 등록 → 상품 번호 �
   })
 
 // ---------------------------------------------------------------------
+// 정상 기능 확인: 보안을 강화하다가 원래 되어야 하는 기능까지 막지 않았는지 검사한다
+// ---------------------------------------------------------------------
+const regressions = []
+async function works(title, run) {
+  process.stdout.write(`[정상] ${title} ... `)
+  try {
+    const { ok, detail } = await run()
+    regressions.push({ title, detail, verdict: ok ? '✅ 정상' : '❌ 깨짐' })
+    console.log(ok ? '정상' : '깨짐')
+  } catch (e) {
+    regressions.push({ title, detail: `실험 오류: ${e.message}`, verdict: '❌ 깨짐' })
+    console.log('오류 -', e.message)
+  }
+}
+
+await works('비로그인: 판매 중 상품·카테고리 조회', async () => {
+  const anon = newClient()
+  const { data: p } = await anon.from('products').select('id').eq('status', 'forsale')
+  const { data: c } = await anon.from('categories').select('id')
+  return { ok: p?.length > 0 && c?.length > 0, detail: `상품 ${p?.length ?? 0}개, 카테고리 ${c?.length ?? 0}개` }
+})
+await works('고객: 본인 프로필·주문 조회, 장바구니 담기', async () => {
+  const { client, user } = await login('customer@etage.test')
+  const { data: me } = await client.from('users').select('name').eq('id', user.id).single()
+  const { data: orders } = await client.from('orders').select('id').eq('user_id', user.id)
+  const toner = await productByName(client, 'DEWLAB 히알루론 수분 토너 200ml')
+  const { error } = await client.from('user_carts').upsert(
+    { user_id: user.id, product_id: toner.id, size: null, color: null, quantity: 1 }, { onConflict: 'user_id,product_id,size,color' })
+  return { ok: !!me && orders?.length > 0 && !error, detail: `프로필 ${me?.name ?? '없음'}, 주문 ${orders?.length ?? 0}건, 장바구니 ${error ? '실패: ' + error.message : '성공'}` }
+})
+await works('입점사(LUNELLE): 자기 브랜드 상품 등록·수정', async () => {
+  const { client } = await login('lunelle@etage.test')
+  // 원본 앱과 같은 방식: get_next_product_id로 번호를 받아 지정 (src/admin/merchant/pages/Products.js:277)
+  const { data: nextId } = await client.rpc('get_next_product_id')
+  const { data: created, error: insErr } = await client.from('products')
+    .insert([{ id: nextId, name: '정상 확인용 LUNELLE 상품', price: 10000, brand: 'LUNELLE', status: 'pending' }]).select('id').single()
+  const { error: updErr } = created
+    ? await client.from('products').update({ price: 12000 }).eq('id', created.id)
+    : { error: { message: '등록 실패로 생략' } }
+  return { ok: !insErr && !updErr, detail: `등록 ${insErr ? '실패: ' + insErr.message : '성공'}, 수정 ${updErr ? '실패: ' + updErr.message : '성공'}` }
+})
+await works('본사: 전체 회원·주문 조회', async () => {
+  const { client } = await login('hq@etage.test')
+  const { data: users } = await client.from('users').select('id')
+  const { data: orders } = await client.from('orders').select('id')
+  return { ok: users?.length >= 2 && orders?.length >= 3, detail: `회원 ${users?.length ?? 0}명, 주문 ${orders?.length ?? 0}건` }
+})
+
+await works('보안 규칙: 고객은 자기 회원 등급을 바꿀 수 없음 (배송비 무료 우회 방지)', async () => {
+  const { client, user } = await login('customer@etage.test')
+  const { error } = await client.from('users').update({ grade: 'GOLD' }).eq('id', user.id)
+  return { ok: !!error, detail: error ? `거부됨: ${error.message}` : '등급 변경 성공 (문제)' }
+})
+await works('보안 규칙: 입점사는 다른 브랜드 이름으로 상품을 등록할 수 없음', async () => {
+  const { client } = await login('lunelle@etage.test')
+  const { data: nextId } = await client.rpc('get_next_product_id')
+  const { error } = await client.from('products').insert([{ id: nextId, name: '남의 브랜드로 등록 시도', price: 1, brand: 'GREYMONT' }])
+  return { ok: !!error, detail: error ? `거부됨: ${error.message}` : '등록 성공 (문제)' }
+})
+
+// ---------------------------------------------------------------------
+const outPath = process.argv[2] ?? 'docs/repro/baseline-report.md'
 const now = new Date()
 const report = [
-  '# v0-baseline 문제 재현 보고서',
+  `# 문제 재현 보고서 (${outPath.includes('baseline') ? 'v0-baseline, 수정 전' : '수정 후'})`,
   '',
   `- 실행 일시: ${now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`,
   '- 대상: 로컬 Supabase(Docker), 마이그레이션 `baseline` + `seed.sql` 적용 직후 (`npm run db:reset`)',
@@ -240,8 +328,16 @@ const report = [
     `- **판정**: ${r.verdict}`,
     '',
   ]),
+  '## 정상 기능 확인',
+  '',
+  '보안을 강화하면서 원래 되어야 하는 기능까지 막지 않았는지 확인한다.',
+  '',
+  '| 기능 | 결과 | 판정 |',
+  '|---|---|---|',
+  ...regressions.map(r => `| ${r.title} | ${r.detail} | ${r.verdict} |`),
+  '',
 ].join('\n')
 
 mkdirSync('docs/repro', { recursive: true })
-writeFileSync('docs/repro/baseline-report.md', report)
-console.log('\n보고서 저장: docs/repro/baseline-report.md')
+writeFileSync(outPath, report)
+console.log(`\n보고서 저장: ${outPath}`)
