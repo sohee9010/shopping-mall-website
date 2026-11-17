@@ -206,3 +206,11 @@ begin
   return new;
 end;
 $$;
+
+
+-- ---------------------------------------------------------------------
+-- 6. Supabase 보안 점검(db advisors) 지적 사항: function_search_path_mutable
+--    baseline에서 만든 함수에 search_path가 고정되지 않아, 호출자가 같은 이름의 객체를 앞선 스키마에
+--    만들어 함수가 엉뚱한 테이블을 읽게 할 여지가 있다. 빈 경로로 고정한다 (본문은 이미 public.으로 명시).
+-- ---------------------------------------------------------------------
+alter function public.get_all_subcategory_ids(bigint) set search_path = '';
