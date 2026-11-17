@@ -417,6 +417,68 @@ await check('P17', '고객이 고른 옵션이 주문·재고에 반영되지 �
   })
 
 // ---------------------------------------------------------------------
+// 혼합 주문(여러 브랜드 상품이 한 주문에 들어 있음)을 만들고 결제 완료까지 처리한다
+async function placePaidMixedOrder(paymentKey) {
+  const { client, user } = await login('customer@etage.test')
+  const lunelle = await productByName(client, 'LUNELLE 캐시미어 라운드넥 니트')
+  const greymont = await productByName(client, 'GREYMONT 울 블레이저')
+  const placed = await createOrderAsApp(client, {
+    user_id: user.id, total_amount: 0, payment_method: '카드', payment_key: paymentKey,
+    items: [
+      { product_id: lunelle.id, name: lunelle.name, price: lunelle.price, quantity: 1, brand: lunelle.brand },
+      { product_id: greymont.id, name: greymont.name, price: greymont.price, quantity: 1, brand: greymont.brand },
+    ],
+    shipping_address: '재현 실험', recipient_name: '재현', recipient_phone: '010-0000-0000',
+  })
+  if (!placed.ok) throw new Error(`혼합 주문 실패: ${placed.error}`)
+  const paid = await markPaidForTest(placed.order.id, placed.order.total_amount)
+  if (!paid.ok) throw new Error(`결제 완료 처리 실패: ${paid.error}`)
+  return { customer: client, orderId: placed.order.id }
+}
+
+// 0009 이후 입점사의 주문 조회 경로: merchant_orders (자기 브랜드 상품 줄만 담아 돌려줌)
+async function merchantOrdersLikeApp(client) {
+  const viaRpc = await client.rpc('merchant_orders')
+  if (viaRpc.error?.code !== 'PGRST202') return viaRpc
+  return client.from('orders').select('*') // 원본: 주문 테이블을 직접 조회
+}
+
+await check('P19', '여러 브랜드가 섞인 주문에서 입점사가 남의 상품 줄을 보고, 주문 전체 상태를 바꿈',
+  'src/admin/shared/pages/Orders.js:61-105·199 (주문 전체를 읽고 화면에서 브랜드로 거름, 주문 단위로 상태 변경) / orders.items(jsonb)에 상품이 통째로 들어 있음',
+  '입점사는 자기 브랜드 상품 줄만 보고, 자기 줄만 발송 처리할 수 있어야 한다. 다른 브랜드 상품의 배송 상태는 바뀌면 안 된다',
+  async () => {
+    const { customer, orderId } = await placePaidMixedOrder('repro_p19')
+    const { client: lunelle } = await login('lunelle@etage.test')
+
+    // 1) 조회: 앱이 쓰는 경로 + 주문 테이블 직접 조회(우회 경로)
+    const { data: viaApp } = await merchantOrdersLikeApp(lunelle)
+    const appOrder = (viaApp ?? []).find((o) => o.id === orderId)
+    const { data: direct } = await lunelle.from('orders').select('id, items, total_amount').eq('id', orderId)
+    const othersInApp = (appOrder?.items ?? []).filter((it) => it.brand !== 'LUNELLE').map((it) => it.name)
+    const othersDirect = (direct?.[0]?.items ?? []).filter((it) => it.brand !== 'LUNELLE').map((it) => it.name)
+
+    // 2) 변경: 원본 앱처럼 주문 상태를 '배송중'으로 바꾸기 시도
+    const { data: upd } = await lunelle.from('orders').update({ status: '배송중', tracking_number: 'P19-LUNELLE' }).eq('id', orderId).select('id')
+    // 0009 이후 앱 경로: 자기 브랜드 줄만 발송 처리
+    const ship = await lunelle.rpc('ship_order_items', { p_order_id: orderId, p_tracking_company: 'CJ대한통운', p_tracking_number: 'P19-LUNELLE' })
+
+    // 3) 고객이 보는 결과: GREYMONT 상품까지 배송중이 되었는가
+    const { data: after } = await customer.from('orders').select('status').eq('id', orderId).single()
+    const lines = await customer.from('order_items').select('brand, status').eq('order_id', orderId)
+    const greymontLine = lines.error ? null : lines.data.find((l) => l.brand === 'GREYMONT')
+    const greymontShipped = greymontLine ? greymontLine.status !== '배송준비' : after.status === '배송중'
+
+    const sawOthers = othersInApp.length > 0 || othersDirect.length > 0
+    return {
+      reproduced: sawOthers || greymontShipped,
+      actual: `LUNELLE 입점사 조회 → 다른 브랜드 상품 줄 ${sawOthers ? `보임 (${[...new Set([...othersInApp, ...othersDirect])].join(', ')})` : '안 보임'}` +
+        `, 주문 테이블 직접 수정 → ${upd?.length ? '성공' : '거부/0건'}` +
+        `, 발송 처리 함수 → ${ship.error?.code === 'PGRST202' ? '없음' : ship.error ? '실패: ' + ship.error.message : '자기 줄 발송 성공'}` +
+        ` → 고객 화면 주문 상태 '${after.status}', GREYMONT 상품 ${greymontLine ? `줄 상태 '${greymontLine.status}'` : '(줄 단위 상태 없음: 주문 상태를 따름)'}`,
+    }
+  })
+
+// ---------------------------------------------------------------------
 // 정상 기능 확인: 보안을 강화하다가 원래 되어야 하는 기능까지 막지 않았는지 검사한다
 // ---------------------------------------------------------------------
 const regressions = []
@@ -572,6 +634,65 @@ await works('보안 규칙: 입점사는 다른 브랜드 이름으로 상품을
   const { data: nextId } = await client.rpc('get_next_product_id')
   const { error } = await client.from('products').insert([{ id: nextId, name: '남의 브랜드로 등록 시도', price: 1, brand: 'GREYMONT' }])
   return { ok: !!error, detail: error ? `거부됨: ${error.message}` : '등록 성공 (문제)' }
+})
+
+// ---- 주문 상품 줄(0009) 이후에만 의미가 있는 확인 ----
+const hasOrderItems = !(await newClient().from('order_items').select('id').limit(1)).error
+
+await works('브랜드별 발송: LUNELLE만 발송 → 부분배송, GREYMONT까지 발송 → 배송중', async () => {
+  if (!hasOrderItems) return { ok: true, detail: '0009 이전 구조(주문 상품 줄 없음) — 해당 없음' }
+  const { customer, orderId } = await placePaidMixedOrder('regression_split_ship')
+  const lunelle = (await login('lunelle@etage.test')).client
+  const greymont = (await login('greymont@etage.test')).client
+  const statusNow = async () => (await customer.from('orders').select('status').eq('id', orderId).single()).data.status
+  const s1 = await lunelle.rpc('ship_order_items', { p_order_id: orderId, p_tracking_company: 'CJ대한통운', p_tracking_number: 'L-1' })
+  const afterFirst = await statusNow()
+  const s2 = await greymont.rpc('ship_order_items', { p_order_id: orderId, p_tracking_company: '한진택배', p_tracking_number: 'G-1' })
+  const afterSecond = await statusNow()
+  const { data: lines } = await customer.from('order_items').select('brand, status, tracking_number').eq('order_id', orderId).order('id')
+  return {
+    ok: !s1.error && !s2.error && afterFirst === '부분배송' && afterSecond === '배송중' && lines.every((l) => l.tracking_number),
+    detail: `LUNELLE 발송 ${s1.error ? '실패: ' + s1.error.message : '성공'} → '${afterFirst}', GREYMONT 발송 ${s2.error ? '실패: ' + s2.error.message : '성공'} → '${afterSecond}', ` +
+      `고객이 보는 줄: ${lines.map((l) => `${l.brand} ${l.status}(${l.tracking_number})`).join(', ')}`,
+  }
+})
+await works('입점사 주문 조회: 자기 브랜드 줄과 그 금액만 보임', async () => {
+  if (!hasOrderItems) return { ok: true, detail: '0009 이전 구조 — 해당 없음' }
+  const { orderId } = await placePaidMixedOrder('regression_merchant_view')
+  const lunelle = (await login('lunelle@etage.test')).client
+  const { data, error } = await lunelle.rpc('merchant_orders')
+  const order = data?.find((o) => o.id === orderId)
+  const onlyMine = order?.items.every((it) => it.brand === 'LUNELLE')
+  const sum = order?.items.reduce((acc, it) => acc + it.price * it.quantity, 0)
+  return {
+    ok: !error && !!order && onlyMine && order.total_amount === sum && !!order.recipient_name,
+    detail: error ? `조회 실패: ${error.message}` : `상품 줄 ${order?.items.map((it) => it.brand).join(', ')}, 금액 ${order?.total_amount?.toLocaleString()}원(자기 줄 합계), 수령인 ${order?.recipient_name}`,
+  }
+})
+await works('취소 결정: 섞인 주문은 입점사가 못 하고 본사가 승인 → 재고 복구', async () => {
+  if (!hasOrderItems) return { ok: true, detail: '0009 이전 구조 — 해당 없음' }
+  const { customer, orderId } = await placePaidMixedOrder('regression_mixed_cancel')
+  const knit = await productByName(customer, 'LUNELLE 캐시미어 라운드넥 니트')
+  const { error: reqErr } = await customer.from('orders').update({ status: '취소요청', cancel_reason: '정상 확인' }).eq('id', orderId)
+  const lunelle = (await login('lunelle@etage.test')).client
+  const byMerchant = await lunelle.rpc('decide_cancel_request', { p_order_id: orderId, p_approve: true })
+  const hq = (await login('hq@etage.test')).client
+  const byHq = await hq.rpc('decide_cancel_request', { p_order_id: orderId, p_approve: true })
+  const knitAfter = await productByName(customer, knit.name)
+  const { data: lines } = await customer.from('order_items').select('status').eq('order_id', orderId)
+  return {
+    ok: !reqErr && !!byMerchant.error && !byHq.error && knitAfter.stock === knit.stock + 1 && lines.every((l) => l.status === '취소'),
+    detail: `고객 취소 요청 ${reqErr ? '실패: ' + reqErr.message : '성공'}, LUNELLE 승인 시도 → ${byMerchant.error ? '거부: ' + byMerchant.error.message : '성공 (문제)'}, ` +
+      `본사 승인 → ${byHq.error ? '실패: ' + byHq.error.message : byHq.data}, 니트 재고 ${knit.stock} → ${knitAfter.stock}, 줄 상태 ${lines.map((l) => l.status).join(', ')}`,
+  }
+})
+await works('보안 규칙: 일부라도 발송된 주문은 고객이 취소 요청할 수 없음', async () => {
+  if (!hasOrderItems) return { ok: true, detail: '0009 이전 구조 — 해당 없음' }
+  const { customer, orderId } = await placePaidMixedOrder('regression_cancel_after_ship')
+  const lunelle = (await login('lunelle@etage.test')).client
+  await lunelle.rpc('ship_order_items', { p_order_id: orderId, p_tracking_company: 'CJ대한통운', p_tracking_number: 'L-2' })
+  const { error } = await customer.from('orders').update({ status: '취소요청', cancel_reason: '발송 후 취소 시도' }).eq('id', orderId)
+  return { ok: !!error, detail: error ? `거부됨: ${error.message}` : '취소 요청 성공 (문제: 발송된 상품이 있는데 취소 가능)' }
 })
 
 // ---------------------------------------------------------------------
