@@ -13,6 +13,7 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:types": "supabase gen types typescript --local > src/types/database.types.ts",
+    "repro": "node scripts/repro/baseline.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
