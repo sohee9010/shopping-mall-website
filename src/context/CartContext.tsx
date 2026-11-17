@@ -2,13 +2,21 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { CartItem, Product } from '../types'
 import { useUser } from './UserContext'
 import * as cartService from '../services/cartService'
+import { cartItemIdOf } from '../services/cartService'
+
+// 장바구니에 담을 SKU 정보 (상품 상세에서 고른 옵션)
+export interface CartVariantInput {
+  id: number
+  optionText: string | null
+  priceDelta: number
+}
 
 interface CartContextType {
   cartItems: CartItem[]
   selectedItems: string[]
   isAllSelected: boolean
   isLoading: boolean
-  addToCart: (product: Product, quantity?: number) => void
+  addToCart: (product: Product, quantity: number, variant: CartVariantInput) => Promise<void>
   updateQuantity: (itemId: string, newQuantity: number) => void
   removeItem: (itemId: string) => void
   removeSelectedItems: () => void
@@ -51,7 +59,9 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
   const loadGuestCartFromStorage = (): CartItem[] => {
     try {
       const savedCart = localStorage.getItem(getGuestCartKey())
-      return savedCart ? JSON.parse(savedCart) : []
+      const items: CartItem[] = savedCart ? JSON.parse(savedCart) : []
+      // SKU 재설계 이전 형식(옵션 정보 없음)으로 저장된 항목은 어떤 옵션인지 알 수 없어 제외한다
+      return items.filter((item) => Number.isInteger(item.variantId))
     } catch (error) {
       console.error('비회원 장바구니 데이터 로드 실패:', error)
       return []
@@ -196,27 +206,27 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     }
   }
 
-  // 장바구니에 상품 추가
-  const addToCart = async (product: Product, quantity: number = 1) => {
-    const itemId = `${product.id}-${product.size || 'no-size'}-${product.color || 'no-color'}`
-    
-    // 기존 아이템 확인
+  // 장바구니에 상품 추가: 고른 옵션(SKU)을 함께 받는다
+  // 이전에는 addToCart(product, quantity)만 받아서 상품 상세에서 고른 옵션이 전달되지 않았다 (P17)
+  const addToCart = async (product: Product, quantity: number, variant: CartVariantInput) => {
+    const itemId = cartItemIdOf(variant.id)
+
+    // 같은 SKU가 이미 있으면 수량만 늘린다
     const existingItemIndex = cartItems.findIndex(item => item.id === itemId)
-    
+
     if (existingItemIndex >= 0) {
-      // 기존 아이템의 수량 업데이트
       const newQuantity = cartItems[existingItemIndex].quantity + quantity
       await updateQuantity(itemId, newQuantity)
     } else {
-      // 새 아이템 추가
       const newItem: CartItem = {
         id: itemId,
         productId: product.id,
+        variantId: variant.id,
+        optionText: variant.optionText,
         quantity,
         product: {
           ...product,
-          size: product.size,
-          color: product.color
+          price: product.price + variant.priceDelta // 표시용 단가 (결제 금액은 서버가 다시 계산)
         }
       }
 

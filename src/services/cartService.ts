@@ -1,295 +1,191 @@
 import { supabase } from './supabase'
 import { CartItem } from '../types'
+import { formatOptionText } from './variantService'
 
-export interface DbCartItem {
-    id: string
-    user_id: string
+// 회원 장바구니 (DB: user_carts)
+// SKU 재설계(0007) 이후 장바구니 한 줄 = SKU 하나. 같은 상품이라도 옵션이 다르면 다른 줄이다.
+// 이전에는 (상품, size, color) 조합으로 구분했지만 고른 옵션이 전달되지 않아 항상 null이었다 (P17).
+
+// 장바구니 항목 id 규칙: 'v' + SKU id
+export const cartItemIdOf = (variantId: number): string => `v${variantId}`
+const variantIdOf = (itemId: string): number => Number(itemId.replace(/^v/, ''))
+
+interface DbCartRow {
     product_id: number
-    product_name: string
-    product_price: number
-    product_image: string
+    variant_id: number
+    product_name: string | null
+    product_price: number | null
+    product_image: string | null
+    brand: string | null
     quantity: number
-    size?: string
-    color?: string
-    brand?: string
     is_selected: boolean
-    created_at: string
-    updated_at: string
+    product_variants: { option1: string | null; option2: string | null } | null
 }
 
-// CartItem을 DbCartItem으로 변환
-export const cartItemToDbItem = (item: CartItem, userId: string): Omit<DbCartItem, 'id' | 'created_at' | 'updated_at'> => ({
+// 장바구니에 표시용 사본으로 저장하는 값 (결제 금액은 place_order가 DB 가격으로 다시 계산한다)
+const toDbRow = (item: CartItem, userId: string) => ({
     user_id: userId,
     product_id: item.productId,
+    variant_id: item.variantId,
     product_name: item.product.name,
     product_price: item.product.price,
     product_image: item.product.image,
-    quantity: item.quantity,
-    size: item.product.size,
-    color: item.product.color,
     brand: item.product.brand,
-    is_selected: true
+    quantity: item.quantity,
+    is_selected: true,
+    updated_at: new Date().toISOString(),
 })
 
-// DbCartItem을 CartItem으로 변환
-export const dbItemToCartItem = (dbItem: DbCartItem): CartItem => ({
-    id: `${dbItem.product_id}-${dbItem.size || 'no-size'}-${dbItem.color || 'no-color'}`,
-    productId: dbItem.product_id,
-    quantity: dbItem.quantity,
+const fromDbRow = (row: DbCartRow): CartItem => ({
+    id: cartItemIdOf(row.variant_id),
+    productId: row.product_id,
+    variantId: row.variant_id,
+    optionText: row.product_variants ? formatOptionText(row.product_variants) : null,
+    quantity: row.quantity,
     product: {
-        id: dbItem.product_id,
-        name: dbItem.product_name,
-        description: '', // DB에서 가져오지 않으므로 빈 문자열
-        price: dbItem.product_price,
-        brand: dbItem.brand,
-        image: dbItem.product_image,
-        category_id: 0, // DB에서 가져오지 않으므로 기본값
-        status: 'forsale' as const,
+        id: row.product_id,
+        name: row.product_name ?? '',
+        description: '',
+        price: row.product_price ?? 0,
+        brand: row.brand ?? undefined,
+        image: row.product_image ?? '',
+        category_id: 0,
+        status: 'forsale',
         sales: 0,
         stock: 0,
         created_at: '',
         updated_at: '',
-        size: dbItem.size,
-        color: dbItem.color
-    }
+    },
 })
 
-// 사용자 장바구니 조회
-export const getUserCart = async (userId: string): Promise<{items: CartItem[], selectedIds: string[]}> => {
-    try {
-        const { data, error } = await supabase
-            .from('user_carts')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: true })
+// 사용자 장바구니 조회 (옵션 문구는 SKU 테이블에서 조인)
+export const getUserCart = async (userId: string): Promise<{ items: CartItem[]; selectedIds: string[] }> => {
+    const { data, error } = await supabase
+        .from('user_carts')
+        .select('product_id, variant_id, product_name, product_price, product_image, brand, quantity, is_selected, product_variants(option1, option2)')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true })
 
-        if (error) {
-            console.error('장바구니 조회 오류:', error)
-            return { items: [], selectedIds: [] }
-        }
-
-        const items: CartItem[] = []
-        const selectedIds: string[] = []
-
-        data?.forEach(dbItem => {
-            const cartItem = dbItemToCartItem(dbItem)
-            items.push(cartItem)
-            
-            if (dbItem.is_selected) {
-                selectedIds.push(cartItem.id)
-            }
-        })
-
-        return { items, selectedIds }
-    } catch (error) {
-        console.error('장바구니 조회 중 예외 발생:', error)
+    if (error) {
+        console.error('장바구니 조회 오류:', error)
         return { items: [], selectedIds: [] }
     }
+
+    const rows = (data ?? []) as unknown as DbCartRow[]
+    const items = rows.map(fromDbRow)
+    const selectedIds = rows.filter((row) => row.is_selected).map((row) => cartItemIdOf(row.variant_id))
+    return { items, selectedIds }
 }
 
-// 장바구니에 상품 추가
+// 장바구니에 담기 (같은 SKU가 이미 있으면 덮어쓴다: 수량은 호출하는 쪽에서 합산해 보냄)
 export const addItemToUserCart = async (userId: string, item: CartItem): Promise<boolean> => {
-    try {
-        const dbItem = cartItemToDbItem(item, userId)
-        
-        // UPSERT: 이미 존재하면 수량 업데이트, 없으면 새로 추가
-        const { error } = await supabase
-            .from('user_carts')
-            .upsert({
-                ...dbItem,
-                updated_at: new Date().toISOString()
-            }, {
-                onConflict: 'user_id,product_id,size,color',
-                ignoreDuplicates: false
-            })
+    const { error } = await supabase
+        .from('user_carts')
+        .upsert(toDbRow(item, userId), { onConflict: 'user_id,variant_id', ignoreDuplicates: false })
 
-        if (error) {
-            console.error('장바구니 추가 오류:', error)
-            return false
-        }
-
-        return true
-    } catch (error) {
-        console.error('장바구니 추가 중 예외 발생:', error)
+    if (error) {
+        console.error('장바구니 추가 오류:', error)
         return false
     }
+    return true
 }
 
-// 장바구니 상품 수량 업데이트
+// 수량 변경
 export const updateCartItemQuantity = async (userId: string, itemId: string, quantity: number): Promise<boolean> => {
-    try {
-        // itemId에서 product_id, size, color 추출
-        const [productId, size, color] = itemId.split('-')
-        const actualSize = size === 'no-size' ? null : size
-        const actualColor = color === 'no-color' ? null : color
+    const { error } = await supabase
+        .from('user_carts')
+        .update({ quantity, updated_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .eq('variant_id', variantIdOf(itemId))
 
-        const { error } = await supabase
-            .from('user_carts')
-            .update({ 
-                quantity,
-                updated_at: new Date().toISOString()
-            })
-            .eq('user_id', userId)
-            .eq('product_id', parseInt(productId))
-            // 옵션이 없는 상품은 null로 저장된다. SQL에서 'size = NULL'은 항상 거짓이라 IS NULL로 비교해야 한다 (P15)
-            .filter('size', actualSize === null ? 'is' : 'eq', actualSize)
-            .filter('color', actualColor === null ? 'is' : 'eq', actualColor)
-
-        if (error) {
-            console.error('수량 업데이트 오류:', error)
-            return false
-        }
-
-        return true
-    } catch (error) {
-        console.error('수량 업데이트 중 예외 발생:', error)
+    if (error) {
+        console.error('수량 업데이트 오류:', error)
         return false
     }
+    return true
 }
 
-// 장바구니 상품 삭제
+// 한 줄 삭제
 export const removeCartItem = async (userId: string, itemId: string): Promise<boolean> => {
-    try {
-        const [productId, size, color] = itemId.split('-')
-        const actualSize = size === 'no-size' ? null : size
-        const actualColor = color === 'no-color' ? null : color
+    const { error } = await supabase
+        .from('user_carts')
+        .delete()
+        .eq('user_id', userId)
+        .eq('variant_id', variantIdOf(itemId))
 
-        const { error } = await supabase
-            .from('user_carts')
-            .delete()
-            .eq('user_id', userId)
-            .eq('product_id', parseInt(productId))
-            // 옵션이 없는 상품은 null로 저장된다. SQL에서 'size = NULL'은 항상 거짓이라 IS NULL로 비교해야 한다 (P15)
-            .filter('size', actualSize === null ? 'is' : 'eq', actualSize)
-            .filter('color', actualColor === null ? 'is' : 'eq', actualColor)
-
-        if (error) {
-            console.error('장바구니 상품 삭제 오류:', error)
-            return false
-        }
-
-        return true
-    } catch (error) {
-        console.error('장바구니 상품 삭제 중 예외 발생:', error)
+    if (error) {
+        console.error('장바구니 상품 삭제 오류:', error)
         return false
     }
+    return true
 }
 
-// 선택된 상품들 삭제
+// 선택한 줄 삭제 (요청 한 번으로)
 export const removeSelectedItems = async (userId: string, selectedIds: string[]): Promise<boolean> => {
-    try {
-        for (const itemId of selectedIds) {
-            const success = await removeCartItem(userId, itemId)
-            if (!success) {
-                console.error(`상품 ${itemId} 삭제 실패`)
-                return false
-            }
-        }
-        return true
-    } catch (error) {
-        console.error('선택된 상품들 삭제 중 예외 발생:', error)
+    const { error } = await supabase
+        .from('user_carts')
+        .delete()
+        .eq('user_id', userId)
+        .in('variant_id', selectedIds.map(variantIdOf))
+
+    if (error) {
+        console.error('선택된 상품 삭제 오류:', error)
         return false
     }
+    return true
 }
 
-// 상품 선택 상태 업데이트
+// 한 줄 선택 상태 변경
 export const updateItemSelection = async (userId: string, itemId: string, isSelected: boolean): Promise<boolean> => {
-    try {
-        const [productId, size, color] = itemId.split('-')
-        const actualSize = size === 'no-size' ? null : size
-        const actualColor = color === 'no-color' ? null : color
+    const { error } = await supabase
+        .from('user_carts')
+        .update({ is_selected: isSelected, updated_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .eq('variant_id', variantIdOf(itemId))
 
-        const { error } = await supabase
-            .from('user_carts')
-            .update({ 
-                is_selected: isSelected,
-                updated_at: new Date().toISOString()
-            })
-            .eq('user_id', userId)
-            .eq('product_id', parseInt(productId))
-            // 옵션이 없는 상품은 null로 저장된다. SQL에서 'size = NULL'은 항상 거짓이라 IS NULL로 비교해야 한다 (P15)
-            .filter('size', actualSize === null ? 'is' : 'eq', actualSize)
-            .filter('color', actualColor === null ? 'is' : 'eq', actualColor)
-
-        if (error) {
-            console.error('선택 상태 업데이트 오류:', error)
-            return false
-        }
-
-        return true
-    } catch (error) {
-        console.error('선택 상태 업데이트 중 예외 발생:', error)
+    if (error) {
+        console.error('선택 상태 업데이트 오류:', error)
         return false
     }
+    return true
 }
 
-// 모든 상품 선택 상태 업데이트
+// 전체 선택 상태 변경
 export const updateAllItemsSelection = async (userId: string, isSelected: boolean): Promise<boolean> => {
-    try {
-        const { error } = await supabase
-            .from('user_carts')
-            .update({ 
-                is_selected: isSelected,
-                updated_at: new Date().toISOString()
-            })
-            .eq('user_id', userId)
+    const { error } = await supabase
+        .from('user_carts')
+        .update({ is_selected: isSelected, updated_at: new Date().toISOString() })
+        .eq('user_id', userId)
 
-        if (error) {
-            console.error('전체 선택 상태 업데이트 오류:', error)
-            return false
-        }
-
-        return true
-    } catch (error) {
-        console.error('전체 선택 상태 업데이트 중 예외 발생:', error)
+    if (error) {
+        console.error('전체 선택 상태 업데이트 오류:', error)
         return false
     }
+    return true
 }
 
-// 사용자 장바구니 전체 삭제
+// 장바구니 비우기
 export const clearUserCart = async (userId: string): Promise<boolean> => {
-    try {
-        const { error } = await supabase
-            .from('user_carts')
-            .delete()
-            .eq('user_id', userId)
+    const { error } = await supabase.from('user_carts').delete().eq('user_id', userId)
 
-        if (error) {
-            console.error('장바구니 전체 삭제 오류:', error)
-            return false
-        }
-
-        return true
-    } catch (error) {
-        console.error('장바구니 전체 삭제 중 예외 발생:', error)
+    if (error) {
+        console.error('장바구니 전체 삭제 오류:', error)
         return false
     }
+    return true
 }
 
-// 여러 상품을 한 번에 장바구니에 추가 (비회원 → 회원 전환 시 사용)
+// 비회원 장바구니를 로그인 시 회원 장바구니에 합치기
+// SKU 정보가 없는 예전 형식의 비회원 항목(재설계 이전에 담은 것)은 옵션을 알 수 없어 건너뛴다
 export const addMultipleItemsToUserCart = async (userId: string, items: CartItem[]): Promise<boolean> => {
-    try {
-        const dbItems = items.map(item => ({
-            ...cartItemToDbItem(item, userId),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-        }))
+    const rows = items.filter((item) => Number.isInteger(item.variantId)).map((item) => toDbRow(item, userId))
+    if (rows.length === 0) return true
 
-        const { error } = await supabase
-            .from('user_carts')
-            .upsert(dbItems, {
-                onConflict: 'user_id,product_id,size,color',
-                ignoreDuplicates: false
-            })
+    const { error } = await supabase.from('user_carts').upsert(rows, { onConflict: 'user_id,variant_id', ignoreDuplicates: false })
 
-        if (error) {
-            console.error('여러 상품 추가 오류:', error)
-            return false
-        }
-
-        return true
-    } catch (error) {
-        console.error('여러 상품 추가 중 예외 발생:', error)
+    if (error) {
+        console.error('여러 상품 추가 오류:', error)
         return false
     }
+    return true
 }

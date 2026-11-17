@@ -2,14 +2,21 @@ import { supabase } from './supabase'
 
 export interface OrderItem {
   product_id: number
+  variant_id?: number // 주문한 SKU (SKU 재설계 이후 주문에만 있음)
+  sku?: string
+  option_text?: string | null // 주문 시점 옵션 문구 스냅샷 (예: '블랙 / M')
   name: string
-  price: number
+  price: number // 주문 시점 단가 (옵션 추가금 포함)
   quantity: number
   image: string
-  size?: string
+  size?: string // SKU 재설계 이전 주문의 옵션 (표시 호환용)
   color?: string
   brand?: string
 }
+
+// 주문 상품의 옵션 표시 문구: 새 주문은 option_text, 이전 주문은 size·color
+export const orderItemOptionText = (item: Pick<OrderItem, 'option_text' | 'size' | 'color'>): string | null =>
+  item.option_text ?? ([item.color, item.size].filter(Boolean).join(' / ') || null)
 
 export interface Order {
   id?: string
@@ -69,11 +76,11 @@ export const cancelPendingOrder = async (orderId: string): Promise<void> => {
 export const createOrder = async (orderData: Omit<Order, 'id' | 'created_at' | 'updated_at'>): Promise<Order | null> => {
   try {
     const { data, error } = await supabase.rpc('place_order', {
+      // 서버는 variant_id(SKU)로 재고를 차감하고 가격·옵션을 DB에서 다시 읽는다
       p_items: orderData.items.map((item: OrderItem) => ({
         product_id: item.product_id,
+        variant_id: item.variant_id ?? null,
         quantity: item.quantity,
-        size: item.size ?? null,
-        color: item.color ?? null,
       })),
       p_shipping_address: orderData.shipping_address,
       p_recipient_name: orderData.recipient_name,
@@ -236,65 +243,4 @@ export const updateShippingInfo = async (orderId: string, trackingNumber: string
   }
 }
 
-// 기존 로컬스토리지 데이터를 데이터베이스로 마이그레이션
-export const migrateLocalOrdersToDatabase = async (userId: string): Promise<number> => {
-  try {
-    const localOrders = JSON.parse(localStorage.getItem('orders') || '[]')
-    const userOrders = localOrders.filter((order: any) => 
-      order.user_id === userId || order.user_id === userId || order.user_id === userId
-    )
 
-    let migratedCount = 0
-    for (const order of userOrders) {
-      // 이미 데이터베이스에 있는 주문인지 확인
-      const existingOrder = await getOrderById(order.id)
-      if (!existingOrder) {
-        const success = await createOrder(order)
-        if (success) {
-          migratedCount++
-        }
-      }
-    }
-
-    return migratedCount
-  } catch (error) {
-    console.error('주문 마이그레이션 중 오류 발생:', error)
-    return 0
-  }
-}
-
-// 테스트용 주문 데이터 생성 (개발/테스트 목적)
-export const createTestOrder = async (userId: string): Promise<Order | null> => {
-  try {
-    const testOrderData: Omit<Order, 'id' | 'created_at' | 'updated_at'> = {
-      user_id: userId,
-      order_date: new Date().toISOString(),
-      status: '주문접수',
-      total_amount: 150000,
-      payment_method: '카드',
-      payment_key: `TEST_${Date.now()}`,
-      items: [
-        {
-          product_id: 1,
-          name: '프리미엄 울 코트',
-          price: 150000,
-          quantity: 1,
-          image: '/placeholder-image.jpg',
-          brand: '테스트 브랜드',
-          size: 'FREE',
-          color: '블랙'
-        }
-      ],
-      shipping_address: '서울시 강남구 테스트로 123',
-      recipient_name: '테스트 사용자',
-      recipient_phone: '010-1234-5678',
-      tracking_number: `TN${Date.now()}`,
-      estimated_delivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-    }
-
-    return await createOrder(testOrderData)
-  } catch (error) {
-    console.error('테스트 주문 생성 중 오류 발생:', error)
-    return null
-  }
-}
