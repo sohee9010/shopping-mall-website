@@ -1,36 +1,13 @@
 import React, { useState, useEffect } from 'react'
+import { HERO_SLIDES } from '../config/site'
 
 const HeroBanner: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [autoplayInterval, setAutoplayInterval] = useState<NodeJS.Timeout | null>(null)
 
-  const slides = [
-    {
-      image: 'https://image.thehyundai.com/HM/HM006/20250821/095846/pc_mainrolling_12.jpg',
-      title: 'PREMIUM COLLECTION',
-      description: '프리미엄 컬렉션'
-    },
-    {
-      image: 'https://image.thehyundai.com/HM/HM039/20250728/135825/ban20250728140328.jpg',
-      title: 'PREMIUM FALL 2025',
-      description: '프리미엄 가을 컬렉션'
-    },
-    {
-      image: 'https://image.thehyundai.com/HM/HM039/20250728/080540/ban20250728122629.jpg',
-      title: "MEN'S LUXURY",
-      description: '세련된 남성을 위한 럭셔리 컬렉션'
-    },
-    {
-      image: 'https://image.thehyundai.com/HM/HM039/20250728/080540/ban20250728122537.jpg',
-      title: 'PREMIUM STORE',
-      description: '프리미엄 쇼핑의 새로운 경험'
-    },
-    {
-      image: 'https://image.thehyundai.com/HM/HM039/20250818/110611/ban20250818134628.jpg',
-      title: 'KIDS COLLECTION',
-      description: '사랑스러운 아이들을 위한 특별한 컬렉션'
-    }
-  ]
+  // 배너 문구·이미지는 config/site.ts에서 관리한다.
+  // 원본은 현대백화점 이미지 서버를 직접 링크해(현재 전부 404) 회색 박스로 보였고, 판매하지 않는 키즈 기획전도 있었다
+  const slides = HERO_SLIDES
 
   const showSlide = (index: number) => {
     setCurrentSlide(index)

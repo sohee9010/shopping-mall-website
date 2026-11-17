@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { SITE } from '../config/site'
 import { Link, useNavigate } from 'react-router-dom'
 import { login } from '../services/userService'
 import { useUser } from '../context/UserContext'
@@ -59,7 +60,7 @@ const LoginPage: React.FC = () => {
       <div className="bg-transparent p-12 w-full max-w-[420px]">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-black mb-2 tracking-tight">로그인</h1>
-          <p className="text-gray-500 text-sm m-0">PREMIUM에 오신 것을 환영합니다</p>
+          <p className="text-gray-500 text-sm m-0">{SITE.name}에 오신 것을 환영합니다</p>
         </div>
 
         <form className="mb-8" onSubmit={handleSubmit}>

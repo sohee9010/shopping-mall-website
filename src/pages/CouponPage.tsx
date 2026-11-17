@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { SITE } from '../config/site'
 import { useNavigate, Link } from 'react-router-dom';
 import { useCouponContext } from '../context/CouponContext';
 import UserInfoModal from '../components/UserInfoModal';
@@ -86,7 +87,7 @@ const CouponPage: React.FC = () => {
           {/* 사이드바 */}
           <aside className="bg-white rounded-lg p-8 shadow-lg w-64 flex-shrink-0">
             <div className="mb-8 pb-5 border-b-2 border-gray-800">
-              <h3 className="text-2xl font-bold text-gray-800 m-0">PREMIUM</h3>
+              <h3 className="text-2xl font-bold text-gray-800 m-0">{SITE.name}</h3>
             </div>
 
             <nav>

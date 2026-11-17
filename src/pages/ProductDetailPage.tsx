@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { SHIPPING } from '../config/site'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { FiHeart, FiShare2, FiShoppingBag, FiTruck, FiRefreshCw, FiShield } from 'react-icons/fi'
 import { useCartContext } from '../context/CartContext'
@@ -26,6 +27,7 @@ const ProductDetailPage: React.FC = () => {
   const [selected2, setSelected2] = useState<string | null>(null)
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
+  const [activeImage, setActiveImage] = useState(0)
 
   // 로그인 상태 확인 함수
   const checkLoginStatus = () => {
@@ -49,6 +51,7 @@ const ProductDetailPage: React.FC = () => {
           
           if (productData) {
             setProduct(productData)
+            setActiveImage(0)
             setVariantInfo(await getProductVariants(productData.id))
             setSelected1(null)
             setSelected2(null)
@@ -242,6 +245,9 @@ const ProductDetailPage: React.FC = () => {
     navigate('/checkout', { state: orderData })
   }
 
+  // 상세 이미지 목록 (DB image_urls, 없으면 대표 이미지 1장)
+  const gallery = product.image_urls?.length ? product.image_urls : [product.image]
+
   return (
     <div className="min-h-screen bg-white">
       {/* 브레드크럼 */}
@@ -262,13 +268,18 @@ const ProductDetailPage: React.FC = () => {
           {/* 상품 이미지 */}
           <div className="space-y-4">
             <div className="aspect-square overflow-hidden rounded-lg bg-gray-100">
-              <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+              <img src={gallery[activeImage] ?? product.image} alt={product.name} className="w-full h-full object-cover" />
             </div>
-            <div className="flex gap-4">
-              <img src={product.image} alt="썸네일 1" className="w-20 h-20 object-cover rounded-lg border-2 border-black cursor-pointer" />
-              <img src={product.image} alt="썸네일 2" className="w-20 h-20 object-cover rounded-lg border border-gray-300 cursor-pointer hover:border-gray-400 transition-colors" />
-              <img src={product.image} alt="썸네일 3" className="w-20 h-20 object-cover rounded-lg border border-gray-300 cursor-pointer hover:border-gray-400 transition-colors" />
-            </div>
+            {/* 썸네일: 이전에는 같은 대표 이미지를 3번 고정 표시했고 클릭해도 아무 일이 없었다. 상품의 실제 이미지 목록(image_urls)으로 바꿨다. */}
+            {gallery.length > 1 && (
+              <div className="flex gap-4">
+                {gallery.map((src, index) => (
+                  <button key={src} type="button" onClick={() => setActiveImage(index)} aria-label={`이미지 ${index + 1} 보기`} className="p-0 bg-transparent border-0 cursor-pointer">
+                    <img src={src} alt="" className={`w-20 h-20 object-cover rounded-lg ${index === activeImage ? 'border-2 border-black' : 'border border-gray-300 hover:border-gray-400 transition-colors'}`} />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* 상품 정보 */}
@@ -376,8 +387,8 @@ const ProductDetailPage: React.FC = () => {
               <div className="flex items-start gap-4">
                 <FiTruck className="text-gray-600 mt-1" size={20} />
                 <div>
-                  <div className="font-semibold text-gray-900">무료배송</div>
-                                          <p className="text-sm text-gray-600">10만원 이상 구매시 무료배송</p>
+                  <div className="font-semibold text-gray-900">배송 안내</div>
+                                          <p className="text-sm text-gray-600">{SHIPPING.notice}</p>
                 </div>
               </div>
               <div className="flex items-start gap-4">

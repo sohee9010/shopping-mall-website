@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { getPopularProducts } from '../services/productService'
+import { WEEKLY_FOCUS, BRAND_AVENUE } from '../config/site'
 import { Product } from '../types'
 
 const WeeklyFocus: React.FC = () => {
@@ -94,153 +95,63 @@ const WeeklyFocus: React.FC = () => {
           }`}>
           Weekly Focus
         </h2>
+        {/* 주간 기획: 문구·이미지는 config/site.ts(WEEKLY_FOCUS)에서 관리.
+            원본은 롯데쇼핑 서버의 동영상과 롯데온 이미지를 직접 링크하고 실존 브랜드(LACOSTE)를 표기했다 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[400px]">
-          <div className="lg:col-span-2 relative overflow-hidden rounded-lg shadow-lg group">
-            <video className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" autoPlay muted loop>
-              <source
-                src="https://minfo.lotteshopping.com/content/video/20250821/0825_%EC%9D%B8%EB%B2%A4%ED%86%A0%EB%A6%AC(PC).mp4"
-                type="video/mp4"
-              />
-            </video>
+          <Link to={WEEKLY_FOCUS.main.link} className="lg:col-span-2 relative overflow-hidden rounded-lg shadow-lg group block">
+            <div
+              className="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-500"
+              style={{ backgroundImage: `url(${WEEKLY_FOCUS.main.image})` }}
+              role="img"
+              aria-label={WEEKLY_FOCUS.main.title}
+            ></div>
             <div className="absolute inset-0 bg-black bg-opacity-40 flex flex-col justify-end p-8">
-              <div className="text-sm font-semibold text-white bg-white bg-opacity-20 px-3 py-1 rounded-full w-fit mb-4">FASHION</div>
-              <h3 className="text-4xl font-bold text-white mb-3">LACOSTE</h3>
-              <p className="text-lg text-white opacity-90">프랑스 전통의 우아함과 스포츠 정신이 만나다</p>
+              <div className="text-sm font-semibold text-white bg-white bg-opacity-20 px-3 py-1 rounded-full w-fit mb-4">{WEEKLY_FOCUS.main.tag}</div>
+              <h3 className="text-4xl font-bold text-white mb-3">{WEEKLY_FOCUS.main.title}</h3>
+              <p className="text-lg text-white opacity-90">{WEEKLY_FOCUS.main.description}</p>
             </div>
-          </div>
+          </Link>
           <div className="flex flex-col gap-4">
-            <div className="relative flex-1 overflow-hidden rounded-lg shadow-lg group">
-              <div
-                className="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-500"
-                style={{
-                  backgroundImage: 'url(https://contents.lotteon.com/display/dshoplnk/52737/2/M001313/685467/P70E969733B3E8393A6EDA22EB3F84023F93CFFC3BD0E6D547877026F26C11CD4/file/dims/optimize/format/webp)'
-                }}
-              ></div>
-              <div className="absolute inset-0 bg-black bg-opacity-40 flex flex-col justify-end p-6">
-                <div className="text-xs font-semibold text-white bg-white bg-opacity-20 px-2 py-1 rounded-full w-fit mb-2">BEAUTY</div>
-                <h3 className="text-xl font-bold text-white">스킨케어 루틴</h3>
-              </div>
-            </div>
-            <div className="relative flex-1 overflow-hidden rounded-lg shadow-lg group">
-              <div
-                className="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-500"
-                style={{
-                  backgroundImage: 'url(https://images.unsplash.com/photo-1469334031218-e382a71b716b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80)'
-                }}
-              ></div>
-              <div className="absolute inset-0 bg-black bg-opacity-40 flex flex-col justify-end p-6">
-                <div className="text-xs font-semibold text-white bg-white bg-opacity-20 px-2 py-1 rounded-full w-fit mb-2">FASHION</div>
-                <h3 className="text-xl font-bold text-white">가을 트렌드</h3>
-              </div>
-            </div>
+            {WEEKLY_FOCUS.subs.map((item) => (
+              <Link key={item.title} to={item.link} className="relative flex-1 overflow-hidden rounded-lg shadow-lg group block">
+                <div
+                  className="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-500"
+                  style={{ backgroundImage: `url(${item.image})` }}
+                  role="img"
+                  aria-label={item.title}
+                ></div>
+                <div className="absolute inset-0 bg-black bg-opacity-40 flex flex-col justify-end p-6">
+                  <div className="text-xs font-semibold text-white bg-white bg-opacity-20 px-2 py-1 rounded-full w-fit mb-2">{item.tag}</div>
+                  <h3 className="text-xl font-bold text-white">{item.title}</h3>
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* 브랜드 섹션 */}
+      {/* 브랜드 섹션: 가상 입점 브랜드 (config/site.ts BRAND_AVENUE). 원본은 ADIDAS·MAXMARA·CREED·HERMÈS 등 실존 브랜드 */}
       <div ref={brandRef} className="max-w-6xl mx-auto px-6 mt-24">
         <h2 className={`text-3xl font-bold text-center mb-16 text-gray-900 transition-all duration-1000 ease-out transform ${isBrandVisible ? 'translate-y-0' : 'translate-y-8'
           }`}>
           New Brand Avenue
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-[600px]">
-          {/* 첫 번째 행 - ADIDAS */}
-          <div className="relative overflow-hidden rounded-lg shadow-lg group">
-            <div
-              className="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-500"
-              style={{
-                backgroundImage: 'url(https://image.thehyundai.com/static/image/sect/dispbnnr22410015210020250818082110.jpg)'
-              }}
-            ></div>
-            <div className="absolute inset-0 bg-black bg-opacity-40 flex flex-col justify-end p-6">
-              <div className="text-sm font-semibold text-white bg-white bg-opacity-20 px-3 py-1 rounded-full w-fit mb-3">SPORTS</div>
-              <h3 className="text-2xl font-bold text-white mb-2">ADIDAS</h3>
-              <p className="text-sm text-white opacity-90">스포츠의 정점, 혁신과 성능의 만남</p>
-            </div>
-            {/* 호버 오버레이 */}
-            <div className="absolute inset-0 bg-white bg-opacity-95 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-center items-center p-6 text-center">
-              <h3 className="text-xl font-bold text-gray-900 mb-3">ADIDAS</h3>
-              <p className="text-gray-700 text-xs leading-relaxed">
-                독일의 전설적인 스포츠 브랜드로, 혁신적인 기술과 디자인으로 운동선수와 일반인 모두에게 최고의 성능을 제공합니다.
-                Boost, Primeknit 등 혁신적인 기술로 스포츠의 새로운 기준을 제시하고 있습니다.
-              </p>
-            </div>
-          </div>
-
-          {/* 첫 번째 행 - MAXMARA */}
-          <div className="relative overflow-hidden rounded-lg shadow-lg group">
-            <div
-              className="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-500"
-              style={{
-                backgroundImage: 'url(https://image.thehyundai.com/HM/HM001Tile/20241119/164317/dispimg22410010020241119164341.jpg)'
-              }}
-            ></div>
-            <div className="absolute inset-0 bg-black bg-opacity-40 flex flex-col justify-end p-6">
-              <div className="text-sm font-semibold text-white bg-white bg-opacity-20 px-3 py-1 rounded-full w-fit mb-3">LUXURY</div>
-              <h3 className="text-2xl font-bold text-white mb-2">MAXMARA</h3>
-              <p className="text-sm text-white opacity-90">이탈리아 프리미엄 패션</p>
-            </div>
-            {/* 호버 오버레이 */}
-            <div className="absolute inset-0 bg-white bg-opacity-95 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-center items-center p-6 text-center">
-              <h3 className="text-xl font-bold text-gray-900 mb-3">MAXMARA</h3>
-              <p className="text-gray-700 text-xs leading-relaxed">
-                이탈리아의 프리미엄 패션 브랜드로, 우아하고 세련된 디자인으로 여성들에게 꿈의 코트를 제공합니다.
-                최고급 소재와 정교한 테일러링으로 시간을 초월한 아름다움을 선사합니다.
-              </p>
-            </div>
-          </div>
-
-          {/* 두 번째 행 - CREED */}
-          <div className="relative overflow-hidden rounded-lg shadow-lg group">
-            <div
-              className="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-500"
-              style={{
-                backgroundImage: 'url(https://image.thehyundai.com/static/image/sect/dispbnnr16793811012020220307101531.jpg)'
-              }}
-            ></div>
-            <div className="absolute inset-0 bg-black bg-opacity-40 flex flex-col justify-end p-6">
-              <div className="text-sm font-semibold text-white bg-white bg-opacity-20 px-3 py-1 rounded-full w-fit mb-3">PERFUME</div>
-              <h3 className="text-2xl font-bold text-white mb-2">CREED</h3>
-              <p className="text-sm text-white opacity-90">영국 왕실의 공식 향수</p>
-            </div>
-            {/* 호버 오버레이 */}
-            <div className="absolute inset-0 bg-white bg-opacity-95 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-center items-center p-6 text-center">
-              <h3 className="text-xl font-bold text-gray-900 mb-3">CREED</h3>
-              <p className="text-gray-700 text-xs leading-relaxed">
-                영국 왕실의 공식 향수 제조업체로, 1760년부터 이어져 온 전통과 혁신을 담은 럭셔리 향수 브랜드입니다.
-                최고급 원료와 장인의 정성을 담아 만든 독특한 향으로 특별한 순간을 선사합니다.
-              </p>
-            </div>
-          </div>
-
-          {/* 두 번째 행 - HERMÈS */}
-          <div className="relative overflow-hidden rounded-lg shadow-lg group">
-            <div
-              className="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-500"
-              style={{
-                backgroundImage: 'url(https://images.unsplash.com/photo-1441986300917-64674bd600d8?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80)'
-              }}
-            ></div>
-            <div className="absolute inset-0 bg-black bg-opacity-40 flex flex-col justify-end p-6">
-              <div className="text-sm font-semibold text-white bg-white bg-opacity-20 px-3 py-1 rounded-full w-fit mb-3">FASHION</div>
-              <h3 className="text-2xl font-bold text-white mb-2">HERMÈS</h3>
-              <p className="text-sm text-white opacity-90">프랑스 럭셔리의 정점</p>
-            </div>
-            {/* 호버 오버레이 */}
-            <div className="absolute inset-0 bg-white bg-opacity-95 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-center items-center p-6 text-center">
-              <h3 className="text-xl font-bold text-gray-900 mb-3">HERMÈS</h3>
-              <p className="text-gray-700 text-xs leading-relaxed">
-                프랑스의 전설적인 럭셔리 브랜드로, 1837년부터 이어져 온 전통과 장인의 정신을 담아 최고급 가죽 제품을 선사합니다.
-                시간을 초월한 아름다움과 기능성을 완벽하게 조화시킨 명품의 대명사입니다.
-              </p>
-            </div>
-          </div>
-        </div>
-        {/* 브랜드 섹션 하단에 하나의 "더 알아보기" 버튼 추가 */}
-        <div className="text-center mt-12">
-          <button className="text-gray-700 font-medium underline decoration-gray-400 hover:text-gray-900 hover:decoration-gray-600 transition-colors duration-300">
-            더 알아보기
-          </button>
+          {BRAND_AVENUE.map((brand) => (
+            <Link key={brand.name} to={`/search?search=${encodeURIComponent(brand.name)}`} className="relative overflow-hidden rounded-lg shadow-lg group block">
+              <div
+                className="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-500"
+                style={{ backgroundImage: `url(${brand.image})` }}
+                role="img"
+                aria-label={brand.name}
+              ></div>
+              <div className="absolute inset-0 bg-black bg-opacity-40 flex flex-col justify-end p-6">
+                <div className="text-sm font-semibold text-white bg-white bg-opacity-20 px-3 py-1 rounded-full w-fit mb-3">{brand.tag}</div>
+                <h3 className="text-2xl font-bold text-white mb-2">{brand.name}</h3>
+                <p className="text-sm text-white opacity-90">{brand.summary}</p>
+              </div>
+            </Link>
+          ))}
         </div>
       </div>
 
