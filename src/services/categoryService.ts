@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { ilikeAnyOf } from '../utils/postgrestFilter'
 import { Product, Category } from '../types'
 
 // 모든 상품 가져오기
@@ -206,7 +207,7 @@ export const searchProducts = async (query: string): Promise<Product[]> => {
             .from('products')
             .select('*')
             .eq('status', 'forsale')
-            .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
+            .or(ilikeAnyOf(['name', 'description'], query)) // 검색어를 필터 문법이 아닌 값으로 취급 (P5)
             .order('sales', { ascending: false })
 
         if (error) {
