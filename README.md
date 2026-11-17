@@ -14,7 +14,7 @@
 
 ### 🥰 서비스 구경 바로가기
 
-🖥 **서비스 주소 : https://shopping-mall-website.vercel.app**
+🖥 **서비스 주소 : https://sohee9010.github.io/shopping-mall-website/**
 
 ---
 
