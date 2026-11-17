@@ -353,8 +353,13 @@ await works('고객: 본인 프로필·주문 조회, 장바구니 담기', asyn
   const { data: me } = await client.from('users').select('name').eq('id', user.id).single()
   const { data: orders } = await client.from('orders').select('id').eq('user_id', user.id)
   const toner = await productByName(client, 'DEWLAB 히알루론 수분 토너 200ml')
-  const { error } = await client.from('user_carts').upsert(
-    { user_id: user.id, product_id: toner.id, size: null, color: null, quantity: 1 }, { onConflict: 'user_id,product_id,size,color' })
+  // 앱(src/services/cartService.ts cartItemToDbItem + addItemToUserCart)이 보내는 것과 같은 형태로 담는다.
+  // 최소 데이터로만 테스트했다가 앱이 함께 보내는 상품명·가격·이미지·브랜드 컬럼 누락을 놓친 적이 있다(0006)
+  const { error } = await client.from('user_carts').upsert({
+    user_id: user.id, product_id: toner.id, product_name: toner.name, product_price: toner.price,
+    product_image: toner.image_urls?.[0] ?? '', quantity: 1, size: undefined, color: undefined, brand: toner.brand,
+    is_selected: true, updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id,product_id,size,color', ignoreDuplicates: false })
   return { ok: !!me && orders?.length > 0 && !error, detail: `프로필 ${me?.name ?? '없음'}, 주문 ${orders?.length ?? 0}건, 장바구니 ${error ? '실패: ' + error.message : '성공'}` }
 })
 await works('입점사(LUNELLE): 자기 브랜드 상품 등록·수정', async () => {
