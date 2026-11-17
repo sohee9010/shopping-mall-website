@@ -204,6 +204,19 @@ from (values
      jsonb_build_object('product_id', (select id from public.products where name = 'GREYMONT 옥스퍼드 버튼다운 셔츠'), 'name', 'GREYMONT 옥스퍼드 버튼다운 셔츠', 'price', 119000, 'quantity', 1, 'brand', 'GREYMONT', 'size', 'M', 'color', '블루', 'image', '')))
 ) as o(no, at, status, total, tracking, items);
 
+-- 주문 상품 줄 (0009 이후). 시드는 마이그레이션 뒤에 실행되므로 0009의 이전 작업과 같은 방식으로 직접 만든다
+insert into public.order_items (order_id, product_id, brand, product_name, option_text, unit_price, quantity, status, tracking_number, shipped_at, delivered_at, created_at)
+select o.id, (e.item ->> 'product_id')::bigint, e.item ->> 'brand', e.item ->> 'name',
+       nullif(concat_ws(' / ', e.item ->> 'color', e.item ->> 'size'), ''),
+       (e.item ->> 'price')::integer, (e.item ->> 'quantity')::integer,
+       case when o.status in ('배송중', '배송완료') then o.status else '배송준비' end,
+       case when o.status in ('배송중', '배송완료') then o.tracking_number end,
+       case when o.status in ('배송중', '배송완료') then o.created_at end,
+       case when o.status = '배송완료' then o.created_at end,
+       o.created_at
+  from public.orders o
+  cross join lateral jsonb_array_elements(o.items) as e(item);
+
 
 -- ---------------------------------------------------------------------
 -- 검색 기록 (인기 검색어·연관 검색어용)
