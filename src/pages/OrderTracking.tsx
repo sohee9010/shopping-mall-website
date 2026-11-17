@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import UserInfoModal from '../components/UserInfoModal'
-import { getUserOrders, migrateLocalOrdersToDatabase, Order, updateOrderStatus, cancelOrder } from '../services/orderService'
+import { getUserOrders, migrateLocalOrdersToDatabase, Order, cancelOrder } from '../services/orderService'
 import { useUser } from '../context/UserContext'
 
 
@@ -27,22 +27,6 @@ const OrderTracking: React.FC = () => {
     const handleUserUpdate = () => {
       // 사용자 정보 업데이트 후 주문 목록 새로고침
       loadOrders()
-    }
-
-    const handleStatusUpdate = async (orderId: string, newStatus: Order['status']) => {
-        try {
-            const success = await updateOrderStatus(orderId, newStatus)
-            if (success) {
-                // 주문 목록 새로고침
-                loadOrders()
-                alert('주문 상태가 업데이트되었습니다.')
-            } else {
-                alert('주문 상태 업데이트에 실패했습니다.')
-            }
-        } catch (error) {
-            console.error('주문 상태 업데이트 중 오류 발생:', error)
-            alert('주문 상태 업데이트 중 오류가 발생했습니다.')
-        }
     }
 
     const handleCancelOrder = async (orderId: string) => {
@@ -302,19 +286,6 @@ const OrderTracking: React.FC = () => {
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 {getStatusBadge(order.status)}
-                                                {order.status !== '주문취소' && order.status !== '배송완료' && (
-                                                    <select
-                                                        value={order.status}
-                                                        onChange={(e) => order.id && handleStatusUpdate(order.id, e.target.value as Order['status'])}
-                                                        className="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    >
-                                                        <option value="주문접수">주문접수</option>
-                                                        <option value="결제완료">결제완료</option>
-                                                        <option value="상품준비">상품준비</option>
-                                                        <option value="배송중">배송중</option>
-                                                        <option value="배송완료">배송완료</option>
-                                                    </select>
-                                                )}
                                             </div>
                                         </div>
                                         

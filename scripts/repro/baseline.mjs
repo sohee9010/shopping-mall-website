@@ -35,7 +35,23 @@ async function productByName(client, name) {
   return data
 }
 
-// 원본 orderService.createOrder + updateProductStockAndSales 와 같은 순서 (src/services/orderService.ts:35-110)
+// 앱이 현재 쓰는 주문 경로로 주문한다.
+//   - 0003 이후: DB 함수 place_order (서버가 가격 재계산 + 조건부 재고 차감, 한 트랜잭션)
+//   - 그 이전(원본): 아래 createOrderLikeOriginal
+async function createOrderAsApp(client, orderData) {
+  const { data, error } = await client.rpc('place_order', {
+    p_items: orderData.items.map(i => ({ product_id: i.product_id, quantity: i.quantity, size: i.size ?? null, color: i.color ?? null })),
+    p_shipping_address: orderData.shipping_address,
+    p_recipient_name: orderData.recipient_name,
+    p_recipient_phone: orderData.recipient_phone,
+    p_payment_method: orderData.payment_method,
+    p_payment_key: orderData.payment_key,
+  })
+  if (error?.code === 'PGRST202') return createOrderLikeOriginal(client, orderData) // 함수 없음 = 원본 상태
+  return error ? { ok: false, error: error.message } : { ok: true, order: data }
+}
+
+// 원본 orderService.createOrder + updateProductStockAndSales 와 같은 순서 (v0-baseline src/services/orderService.ts:35-110)
 //   1) 주문 insert  2) 상품 재고 조회  3) 클라이언트에서 계산  4) 재고 update
 async function createOrderLikeOriginal(client, orderData) {
   const { data, error } = await client.from('orders').insert([orderData]).select().single()
@@ -77,23 +93,47 @@ async function check(id, title, location, expected, run) {
 }
 
 // ---------------------------------------------------------------------
-await check('P1', '결제 없이 "결제완료" 주문 생성 + 금액 임의 지정',
-  'src/pages/PaymentSuccessPage.tsx:24-101 (URL의 amount·paymentKey와 sessionStorage 주문 데이터로 바로 주문 생성)',
-  '서버가 결제사(Toss)에 승인 여부와 금액을 확인한 뒤에만 결제완료 주문이 생겨야 한다',
+await check('P1-a', '주문 금액을 클라이언트가 임의로 지정 (489,000원 상품을 100원에)',
+  'v0-baseline src/pages/CheckoutPage.tsx:173 (클라이언트가 계산한 total_amount를 그대로 저장)',
+  '주문 금액은 서버가 DB의 상품 가격으로 계산해야 하고, 클라이언트가 보낸 금액은 무시해야 한다',
   async () => {
     const { client, user } = await login('customer@etage.test')
     const coat = await productByName(client, 'LUNELLE 울 캐시미어 더블 코트')
-    const res = await createOrderLikeOriginal(client, {
-      user_id: user.id, status: '결제완료', total_amount: 100, payment_method: '카드',
-      payment_key: 'FAKE_PAYMENT_KEY_never_paid',
-      items: [{ product_id: coat.id, name: coat.name, price: coat.price, quantity: 1, brand: coat.brand, image: '' }],
+    // 공격자는 앱이 주문할 때 쓰는 경로로 price=1, total_amount=100 을 보낸다
+    const res = await createOrderAsApp(client, {
+      user_id: user.id, status: '결제완료', total_amount: 100, payment_method: '카드', payment_key: 'repro_p1a',
+      items: [{ product_id: coat.id, name: coat.name, price: 1, quantity: 1, brand: coat.brand, image: '' }],
       shipping_address: '재현 실험', recipient_name: '재현', recipient_phone: '010-0000-0000',
     })
-    const after = await productByName(client, coat.name)
+    // 별도로, 주문 테이블에 금액을 직접 써 넣는 우회 경로도 시도한다
+    const { error: directErr } = await client.from('orders').insert([{
+      user_id: user.id, status: '결제완료', total_amount: 100, payment_key: 'repro_p1a_direct',
+      items: [{ product_id: coat.id, name: coat.name, price: 1, quantity: 1, brand: coat.brand }],
+    }])
+    const saved = res.ok ? res.order.total_amount : null
     return {
-      reproduced: res.ok,
+      reproduced: (res.ok && saved < coat.price) || !directErr,
+      actual: `앱 경로로 100원 주문 → ${res.ok ? `저장된 금액 ${saved.toLocaleString()}원` : '실패: ' + res.error}` +
+        ` / 주문 테이블 직접 insert → ${directErr ? '거부됨' : '성공 (100원 주문 저장됨)'}`,
+    }
+  })
+
+await check('P1-b', '결제 없이 "결제완료" 주문 생성 (가짜 paymentKey)',
+  'src/pages/PaymentSuccessPage.tsx:24-101 (URL의 paymentKey를 결제사에 확인하지 않고 주문 생성)',
+  '서버가 결제사(Toss)에 승인 여부와 금액을 확인한 뒤에만 결제완료 주문이 생겨야 한다',
+  async () => {
+    const { client, user } = await login('customer@etage.test')
+    const knit = await productByName(client, 'LUNELLE 캐시미어 라운드넥 니트')
+    const res = await createOrderAsApp(client, {
+      user_id: user.id, status: '결제완료', total_amount: knit.price, payment_method: '카드',
+      payment_key: 'FAKE_PAYMENT_KEY_never_paid',
+      items: [{ product_id: knit.id, name: knit.name, price: knit.price, quantity: 1, brand: knit.brand, image: '' }],
+      shipping_address: '재현 실험', recipient_name: '재현', recipient_phone: '010-0000-0000',
+    })
+    return {
+      reproduced: res.ok && res.order.status === '결제완료',
       actual: res.ok
-        ? `정가 ${coat.price.toLocaleString()}원 코트를 결제 없이 total_amount=100원, status=결제완료로 주문 생성 성공 (가짜 paymentKey 그대로 저장). 재고 ${coat.stock} → ${after.stock}`
+        ? `결제한 적 없는 paymentKey로 status='${res.order.status}' 주문 생성 성공 (결제사 승인 확인 없음)`
         : `주문 생성 거부: ${res.error}`,
     }
   })
@@ -105,7 +145,7 @@ await check('P3', '재고 1개 상품에 동시 주문 10건 (초과 판매 + �
   async () => {
     const { client, user } = await login('vip@etage.test')
     const before = await productByName(client, 'LUNELLE 핸드메이드 울 하프 코트')
-    const orders = Array.from({ length: 10 }, (_, i) => createOrderLikeOriginal(client, {
+    const orders = Array.from({ length: 10 }, (_, i) => createOrderAsApp(client, {
       user_id: user.id, status: '결제완료', total_amount: before.price, payment_method: '카드', payment_key: `repro_p3_${i}`,
       items: [{ product_id: before.id, name: before.name, price: before.price, quantity: 1, brand: before.brand, image: '' }],
       shipping_address: '재현 실험', recipient_name: '재현', recipient_phone: '010-0000-0000',
@@ -115,11 +155,15 @@ await check('P3', '재고 1개 상품에 동시 주문 10건 (초과 판매 + �
     const after = await productByName(client, before.name)
     return {
       reproduced: succeeded > before.stock,
-      actual: `재고 ${before.stock}개인데 주문 ${succeeded}건 모두 성공 → ${succeeded - before.stock}건 초과 판매. ` +
-        `재고 ${before.stock} → ${after.stock}, 판매량 ${before.sales} → ${after.sales}` +
-        (after.sales === before.sales
-          ? ' (고객의 상품 수정 권한이 막혀 클라이언트 재고 차감이 반영되지 않음. 주문 자체는 여전히 재고 확인 없이 접수됨)'
-          : ` (정상이면 +${succeeded}여야 하나 +${after.sales - before.sales}: 동시 갱신으로 판매량 유실)`),
+      actual: `재고 ${before.stock}개에 동시 주문 10건 → ${succeeded}건 성공, ${10 - succeeded}건 거절` +
+        (succeeded > before.stock ? ` (${succeeded - before.stock}건 초과 판매)` : '') +
+        (done.find(r => !r.ok) ? ` [거절 사유: ${done.find(r => !r.ok).error}]` : '') +
+        `. 재고 ${before.stock} → ${after.stock}, 판매량 ${before.sales} → ${after.sales}` +
+        (after.sales - before.sales === succeeded
+          ? ''
+          : after.sales === before.sales
+            ? ' (고객의 상품 수정 권한이 막혀 클라이언트 재고 차감이 반영되지 않음. 주문 자체는 여전히 재고 확인 없이 접수됨)'
+            : ` (정상이면 +${succeeded}여야 하나 +${after.sales - before.sales}: 동시 갱신으로 판매량 유실)`),
     }
   })
 
@@ -292,6 +336,27 @@ await works('본사: 전체 회원·주문 조회', async () => {
   return { ok: users?.length >= 2 && orders?.length >= 3, detail: `회원 ${users?.length ?? 0}명, 주문 ${orders?.length ?? 0}건` }
 })
 
+await works('주문: 정상 주문 → 고객 취소 요청 → 본사 취소 승인 시 재고 복구', async () => {
+  const { client, user } = await login('customer@etage.test')
+  const p = await productByName(client, 'GREYMONT 울 블레이저')
+  const placed = await createOrderAsApp(client, {
+    user_id: user.id, status: '결제완료', total_amount: p.price, payment_method: '카드', payment_key: 'regression_cancel',
+    items: [{ product_id: p.id, name: p.name, price: p.price, quantity: 2, brand: p.brand, size: 'M', color: '차콜' }],
+    shipping_address: '정상 확인', recipient_name: '정상', recipient_phone: '010-0000-0000',
+  })
+  if (!placed.ok) return { ok: false, detail: `주문 실패: ${placed.error}` }
+  const afterOrder = await productByName(client, p.name)
+  const { error: reqErr } = await client.from('orders').update({ status: '취소요청', cancel_reason: '정상 확인' }).eq('id', placed.order.id)
+  const hq = (await login('hq@etage.test')).client
+  const { error: apprErr } = await hq.from('orders').update({ status: '주문취소' }).eq('id', placed.order.id)
+  const afterCancel = await productByName(client, p.name)
+  const ok = afterOrder.stock === p.stock - 2 && !reqErr && !apprErr && afterCancel.stock === p.stock
+  return {
+    ok,
+    detail: `재고 ${p.stock} → 주문 후 ${afterOrder.stock} → 취소 승인 후 ${afterCancel.stock}, ` +
+      `취소 요청 ${reqErr ? '실패: ' + reqErr.message : '성공'}, 승인 ${apprErr ? '실패: ' + apprErr.message : '성공'}`,
+  }
+})
 await works('보안 규칙: 고객은 자기 회원 등급을 바꿀 수 없음 (배송비 무료 우회 방지)', async () => {
   const { client, user } = await login('customer@etage.test')
   const { error } = await client.from('users').update({ grade: 'GOLD' }).eq('id', user.id)

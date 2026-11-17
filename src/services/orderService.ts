@@ -32,85 +32,37 @@ export interface Order {
 }
 
 // 주문 생성
+// DB 함수 place_order가 하나의 트랜잭션으로 처리한다 (supabase/migrations/*_order_transaction.sql)
+//   - 상품 가격·이름·브랜드와 배송비를 서버에서 다시 계산한다. 여기서 보낸 total_amount·price는 사용하지 않는다
+//   - 재고는 "남은 재고 >= 주문 수량"일 때만 차감되어, 동시에 주문해도 재고보다 많이 팔리지 않는다
+//   - 재고가 부족하면 주문 전체가 취소되고 오류가 반환된다
+// 이전에는 클라이언트가 주문을 insert한 뒤 재고를 조회 -> 계산 -> UPDATE 해서 초과 판매가 발생했다
 export const createOrder = async (orderData: Omit<Order, 'id' | 'created_at' | 'updated_at'>): Promise<Order | null> => {
   try {
-    // 1. 주문 생성
-    const { data, error } = await supabase
-      .from('orders')
-      .insert([{
-        ...orderData,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }])
-      .select()
-      .single()
+    const { data, error } = await supabase.rpc('place_order', {
+      p_items: orderData.items.map((item: OrderItem) => ({
+        product_id: item.product_id,
+        quantity: item.quantity,
+        size: item.size ?? null,
+        color: item.color ?? null,
+      })),
+      p_shipping_address: orderData.shipping_address,
+      p_recipient_name: orderData.recipient_name,
+      p_recipient_phone: orderData.recipient_phone,
+      p_payment_method: orderData.payment_method,
+      p_payment_key: orderData.payment_key ?? null,
+    })
 
     if (error) {
-      console.error('주문 생성 오류:', error)
+      // 재고 부족은 hint = 'OUT_OF_STOCK' 으로 구분된다
+      console.error('주문 생성 오류:', error.message, error.hint ?? '')
       return null
     }
 
-    // 2. 주문 성공 시 상품 재고 및 판매량 업데이트
-    if (data && data.items) {
-      await updateProductStockAndSales(data.items)
-    }
-
-    return data
+    return data as Order
   } catch (error) {
     console.error('주문 생성 중 예외 발생:', error)
     return null
-  }
-}
-
-// 상품 재고 및 판매량 업데이트 함수
-const updateProductStockAndSales = async (orderItems: OrderItem[]): Promise<void> => {
-  try {
-    console.log('상품 재고 및 판매량 업데이트 시작:', orderItems)
-    
-    for (const item of orderItems) {
-      const { product_id, quantity } = item
-      
-      // 현재 상품 정보 조회
-      const { data: currentProduct, error: fetchError } = await supabase
-        .from('products')
-        .select('stock, sales')
-        .eq('id', product_id)
-        .single()
-
-      if (fetchError) {
-        console.error(`상품 ${product_id} 조회 오류:`, fetchError)
-        continue
-      }
-
-      if (!currentProduct) {
-        console.error(`상품 ${product_id}를 찾을 수 없습니다.`)
-        continue
-      }
-
-      const currentStock = currentProduct.stock || 0
-      const currentSales = currentProduct.sales || 0
-      const newStock = Math.max(0, currentStock - quantity) // 재고는 0 이하로 내려가지 않음
-      const newSales = currentSales + quantity
-
-      // 상품 재고 및 판매량 업데이트
-      const { error: updateError } = await supabase
-        .from('products')
-        .update({
-          stock: newStock,
-          sales: newSales,
-          status: newStock === 0 ? 'soldout' as const : 'forsale' as const, // 재고가 0이면 품절 상태로 변경
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', product_id)
-
-      if (updateError) {
-        console.error(`상품 ${product_id} 업데이트 오류:`, updateError)
-      } else {
-        console.log(`상품 ${product_id} 업데이트 완료: 재고 ${currentStock} → ${newStock}, 판매량 ${currentSales} → ${newSales}`)
-      }
-    }
-  } catch (error) {
-    console.error('상품 재고 및 판매량 업데이트 중 오류 발생:', error)
   }
 }
 
@@ -203,22 +155,11 @@ export const cancelOrder = async (orderId: string, reason: string): Promise<bool
   }
 }
 
-// 주문 취소 승인 (관리자용) - 재고 복구 포함
+// 주문 취소 승인 (관리자용)
+// 재고 복구는 DB 트리거(orders_restore_stock_on_cancel)가 상태가 '주문취소'로 바뀔 때 서버에서 한 번만 처리한다.
+// 이전에는 클라이언트가 재고를 조회 -> 더하기 -> UPDATE 해서, 동시 처리 시 복구량이 유실될 수 있었다
 export const approveOrderCancellation = async (orderId: string): Promise<boolean> => {
   try {
-    // 1. 주문 정보 조회
-    const { data: order, error: fetchError } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('id', orderId)
-      .single()
-
-    if (fetchError || !order) {
-      console.error('주문 조회 오류:', fetchError)
-      return false
-    }
-
-    // 2. 주문 상태를 취소완료로 변경
     const { error: updateError } = await supabase
       .from('orders')
       .update({ 
@@ -232,67 +173,10 @@ export const approveOrderCancellation = async (orderId: string): Promise<boolean
       return false
     }
 
-    // 3. 상품 재고 복구 및 판매량 차감
-    if (order.items && order.items.length > 0) {
-      await restoreProductStockAndSales(order.items)
-    }
-
     return true
   } catch (error) {
     console.error('주문 취소 승인 중 예외 발생:', error)
     return false
-  }
-}
-
-// 상품 재고 복구 및 판매량 차감 함수 (주문 취소 시)
-const restoreProductStockAndSales = async (orderItems: OrderItem[]): Promise<void> => {
-  try {
-    console.log('상품 재고 복구 및 판매량 차감 시작:', orderItems)
-    
-    for (const item of orderItems) {
-      const { product_id, quantity } = item
-      
-      // 현재 상품 정보 조회
-      const { data: currentProduct, error: fetchError } = await supabase
-        .from('products')
-        .select('stock, sales')
-        .eq('id', product_id)
-        .single()
-
-      if (fetchError) {
-        console.error(`상품 ${product_id} 조회 오류:`, fetchError)
-        continue
-      }
-
-      if (!currentProduct) {
-        console.error(`상품 ${product_id}를 찾을 수 없습니다.`)
-        continue
-      }
-
-      const currentStock = currentProduct.stock || 0
-      const currentSales = currentProduct.sales || 0
-      const newStock = currentStock + quantity // 재고 복구
-      const newSales = Math.max(0, currentSales - quantity) // 판매량 차감 (0 이하로 내려가지 않음)
-
-      // 상품 재고 및 판매량 업데이트
-      const { error: updateError } = await supabase
-        .from('products')
-        .update({
-          stock: newStock,
-          sales: newSales,
-          status: newStock > 0 ? 'forsale' as const : 'soldout' as const, // 재고가 있으면 판매중으로 변경
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', product_id)
-
-      if (updateError) {
-        console.error(`상품 ${product_id} 복구 오류:`, updateError)
-      } else {
-        console.log(`상품 ${product_id} 복구 완료: 재고 ${currentStock} → ${newStock}, 판매량 ${currentSales} → ${newSales}`)
-      }
-    }
-  } catch (error) {
-    console.error('상품 재고 복구 및 판매량 차감 중 오류 발생:', error)
   }
 }
 
