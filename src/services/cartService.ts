@@ -131,8 +131,9 @@ export const updateCartItemQuantity = async (userId: string, itemId: string, qua
             })
             .eq('user_id', userId)
             .eq('product_id', parseInt(productId))
-            .eq('size', actualSize)
-            .eq('color', actualColor)
+            // 옵션이 없는 상품은 null로 저장된다. SQL에서 'size = NULL'은 항상 거짓이라 IS NULL로 비교해야 한다 (P15)
+            .filter('size', actualSize === null ? 'is' : 'eq', actualSize)
+            .filter('color', actualColor === null ? 'is' : 'eq', actualColor)
 
         if (error) {
             console.error('수량 업데이트 오류:', error)
@@ -158,8 +159,9 @@ export const removeCartItem = async (userId: string, itemId: string): Promise<bo
             .delete()
             .eq('user_id', userId)
             .eq('product_id', parseInt(productId))
-            .eq('size', actualSize)
-            .eq('color', actualColor)
+            // 옵션이 없는 상품은 null로 저장된다. SQL에서 'size = NULL'은 항상 거짓이라 IS NULL로 비교해야 한다 (P15)
+            .filter('size', actualSize === null ? 'is' : 'eq', actualSize)
+            .filter('color', actualColor === null ? 'is' : 'eq', actualColor)
 
         if (error) {
             console.error('장바구니 상품 삭제 오류:', error)
@@ -205,8 +207,9 @@ export const updateItemSelection = async (userId: string, itemId: string, isSele
             })
             .eq('user_id', userId)
             .eq('product_id', parseInt(productId))
-            .eq('size', actualSize)
-            .eq('color', actualColor)
+            // 옵션이 없는 상품은 null로 저장된다. SQL에서 'size = NULL'은 항상 거짓이라 IS NULL로 비교해야 한다 (P15)
+            .filter('size', actualSize === null ? 'is' : 'eq', actualSize)
+            .filter('color', actualColor === null ? 'is' : 'eq', actualColor)
 
         if (error) {
             console.error('선택 상태 업데이트 오류:', error)
