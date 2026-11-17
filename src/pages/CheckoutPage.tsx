@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { shippingFeeFor } from '../config/site'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { FiChevronDown, FiChevronUp } from 'react-icons/fi'
 import { useCartContext } from '../context/CartContext'
@@ -73,8 +74,8 @@ const CheckoutPage: React.FC = () => {
     // 사용자 등급 확인 (useUser 컨텍스트 사용)
     const user = currentUser
 
-    // 배송비 계산 (FAMILY 등급은 3,000원, SILVER 이상은 무료)
-    const shippingFee = user && (user.grade === 'SILVER' || user.grade === 'GOLD' || user.grade === 'DIAMOND' || user.grade === 'PRESTIGE VIP') ? 0 : 3000
+    // 배송비: 서버(place_order)와 같은 등급 규칙 — config/site.ts의 shippingFeeFor 하나로 관리
+    const shippingFee = shippingFeeFor(user?.grade)
 
     // 쿠폰 할인 적용
     const availableCoupons = getAvailableCoupons(totalPrice)

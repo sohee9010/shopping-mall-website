@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { SHIPPING, shippingFeeFor } from '../config/site'
 import { FiTrash2, FiMinus, FiPlus, FiHeart, FiGift, FiChevronDown, FiChevronUp } from 'react-icons/fi'
 import { Link, useNavigate } from 'react-router-dom'
 import { useCartContext } from '../context/CartContext'
@@ -33,8 +34,8 @@ const CartPage: React.FC = () => {
   // 사용자 등급 확인
   const user = currentUser
   
-  // 배송비 계산 (FAMILY 등급은 3,000원, SILVER 이상은 무료)
-  const shippingFee = user && (user.grade === 'SILVER' || user.grade === 'GOLD' || user.grade === 'DIAMOND' || user.grade === 'PRESTIGE VIP') ? 0 : 3000
+  // 배송비: 서버(place_order)와 같은 등급 규칙 — config/site.ts의 shippingFeeFor 하나로 관리
+  const shippingFee = shippingFeeFor(user?.grade)
   
   const selectedTotalPrice = getSelectedTotalPrice()
   const availableCoupons = getAvailableCoupons(selectedTotalPrice)
@@ -337,7 +338,7 @@ const CartPage: React.FC = () => {
             <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-100">
               <h4 className="font-bold mb-4">배송정보</h4>
               <div className="text-sm text-gray-600 space-y-2">
-                <p>• 무료배송 (10만원 이상 구매시)</p>
+                <p>• {SHIPPING.notice}</p>
                 <p>• 당일배송 가능지역: 서울/경기 일부</p>
                 <p>• 일반배송: 2-3일 소요</p>
               </div>
