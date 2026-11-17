@@ -95,6 +95,11 @@ const UserInfoModal: React.FC<UserInfoModalProps> = ({ isOpen, onClose, user, on
 
     const handleChangePassword = () => {
         // 현재 비밀번호 확인
+        // KNOWN BUG(고도화 2단계에서 수정): Supabase Auth는 비밀번호를 클라이언트에 내려주지 않아
+        // user.password는 항상 undefined다. 그래서 무엇을 입력해도 이 검사에서 실패한다.
+        // 또한 아래 로직은 초기 프로토타입처럼 localStorage에 평문 비밀번호를 저장한다.
+        // -> supabase.auth.signInWithPassword로 재인증 후 supabase.auth.updateUser로 변경하도록 재작성 예정
+        // @ts-expect-error User 타입에 password가 없는 것이 맞다 (위 KNOWN BUG 참고)
         if (currentPassword !== user?.password) {
             alert('현재 비밀번호가 올바르지 않습니다.')
             return

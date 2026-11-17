@@ -12,7 +12,7 @@ const PaymentSuccessPage: React.FC = () => {
   const [orderCreated, setOrderCreated] = useState(false)
   const navigate = useNavigate()
   const hasProcessedRef = useRef(false) // 중복 실행 방지를 위한 ref
-  const { selectedCoupon, useCoupon, calculateDiscount } = useCouponContext()
+  const { selectedCoupon, applyCoupon, calculateDiscount } = useCouponContext()
   const { clearCart } = useCartContext()
 
   useEffect(() => {
@@ -64,7 +64,7 @@ const PaymentSuccessPage: React.FC = () => {
         // 결제 성공 시 선택된 쿠폰이 있으면 사용 처리
         if (selectedCoupon) {
           const discountAmount = calculateDiscount(selectedCoupon, parseInt(amount))
-          useCoupon(selectedCoupon.id, orderId, discountAmount)
+          applyCoupon(selectedCoupon.id, orderId, discountAmount)
         }
         
         // 결제 성공 시 주문 생성
@@ -112,7 +112,7 @@ const PaymentSuccessPage: React.FC = () => {
       // 쿠폰 사용 처리
       if (pendingData.selectedCoupon && savedOrder.id) {
         const discountAmount = pendingData.discountAmount || 0
-        useCoupon(pendingData.selectedCoupon.id, savedOrder.id, discountAmount)
+        applyCoupon(pendingData.selectedCoupon.id, savedOrder.id, discountAmount)
         console.log('쿠폰이 사용 처리되었습니다.')
       }
       

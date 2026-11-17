@@ -8,9 +8,9 @@ interface CouponContextType {
   usedCoupons: Coupon[]
   userCoupons: Coupon[]
   userCouponUsages: CouponUsage[]
-  selectCoupon: (coupon: Coupon) => void
+  selectCoupon: (coupon: Coupon | null) => void
   clearSelectedCoupon: () => void
-  useCoupon: (couponId: string, orderId: string, discountAmount: number) => void
+  applyCoupon: (couponId: string, orderId: string, discountAmount: number) => void
   getAvailableCoupons: (totalAmount: number) => Coupon[]
   calculateDiscount: (coupon: Coupon, totalAmount: number) => number
   addTestCoupons: () => void
@@ -64,7 +64,7 @@ export const CouponProvider: React.FC<CouponProviderProps> = ({ children }) => {
   }, [currentUser])
 
   // 쿠폰 선택
-  const selectCoupon = (coupon: Coupon) => {
+  const selectCoupon = (coupon: Coupon | null) => {
     setSelectedCoupon(coupon)
   }
 
@@ -73,13 +73,8 @@ export const CouponProvider: React.FC<CouponProviderProps> = ({ children }) => {
     setSelectedCoupon(null)
   }
 
-  // 쿠폰이 선택되었는지 확인
-  const isCouponSelected = (couponId: string) => {
-    return selectedCoupon?.id === couponId
-  }
-
   // 쿠폰 사용 (결제 완료 후 호출)
-  const useCoupon = (couponId: string, orderId: string, discountAmount: number) => {
+  const applyCoupon = (couponId: string, orderId: string, discountAmount: number) => {
     if (!currentUser) return
 
     // 쿠폰 상태 업데이트
@@ -216,7 +211,7 @@ export const CouponProvider: React.FC<CouponProviderProps> = ({ children }) => {
     userCouponUsages,
     selectCoupon,
     clearSelectedCoupon,
-    useCoupon,
+    applyCoupon,
     getAvailableCoupons,
     calculateDiscount,
     addTestCoupons,

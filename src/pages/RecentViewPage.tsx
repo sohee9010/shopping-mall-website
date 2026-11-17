@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useRecentViewContext } from '../context/RecentViewContext'
 import { useUser } from '../context/UserContext'
 import Sidebar from '../components/Sidebar'
@@ -7,12 +7,10 @@ import UserInfoModal from '../components/UserInfoModal'
 
 const RecentViewPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('shopping')
-  const [sortBy, setSortBy] = useState('latest')
   const [showUserInfoModal, setShowUserInfoModal] = useState(false)
   const [user, setUser] = useState<any>(null)
   const { recentItems, removeFromRecent, getRecentCount } = useRecentViewContext()
   const { currentUser } = useUser()
-  const navigate = useNavigate()
 
   useEffect(() => {
     if (currentUser) {
@@ -139,7 +137,7 @@ const RecentViewPage: React.FC = () => {
       <UserInfoModal
         isOpen={showUserInfoModal}
         onClose={() => setShowUserInfoModal(false)}
-        onUpdate={handleUserUpdate}
+        onUserUpdate={handleUserUpdate}
         user={user}
       />
     </div>

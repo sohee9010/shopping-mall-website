@@ -1,5 +1,4 @@
 import { supabase } from './supabase'
-import { User } from '../types'
 import { authLogger } from '../utils/logger'
 
 export interface SignupData {
@@ -285,7 +284,7 @@ export const findUserForPasswordReset = async (email: string, name: string, phon
 }
 
 // 이메일로 임시 비밀번호 전송
-export const sendTempPasswordEmail = async (email: string, tempPassword: string): Promise<{ success: boolean; error?: string }> => {
+export const sendTempPasswordEmail = async (email: string, _tempPassword: string): Promise<{ success: boolean; error?: string }> => {
   try {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}reset-password`  // 여기가 핵심!
@@ -304,7 +303,7 @@ export const sendTempPasswordEmail = async (email: string, tempPassword: string)
 }
 
 // 임시 비밀번호로 비밀번호 업데이트 (수정)
-export const updatePasswordWithTemp = async (userId: string, tempPassword: string, email: string): Promise<{ success: boolean; error?: string }> => {
+export const updatePasswordWithTemp = async (_userId: string, tempPassword: string, email: string): Promise<{ success: boolean; error?: string }> => {
   try {
     // 이메일로 비밀번호 재설정 링크 전송
     const emailResult = await sendTempPasswordEmail(email, tempPassword)

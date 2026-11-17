@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { FiMessageSquare, FiPlus, FiSearch, FiCalendar, FiFileText, FiShoppingBag, FiX } from 'react-icons/fi'
+import { FiPlus, FiSearch, FiFileText } from 'react-icons/fi'
 import { useUser } from '../context/UserContext'
 import { getUserInquiries } from '../services/inquiryService'
-import { getUserOrders } from '../services/orderService'
+import { getUserOrders, Order } from '../services/orderService'
 
 interface Inquiry {
   id: string
@@ -16,21 +16,6 @@ interface Inquiry {
   replyContent?: string
 }
 
-interface Order {
-  id: string
-  user_id: string
-  order_date: string
-  status: string
-  total_amount: number
-  items: Array<{
-    product_id: number
-    name: string
-    price: number
-    quantity: number
-    image: string
-  }>
-}
-
 const InquiryHistoryPage: React.FC = () => {
   const navigate = useNavigate()
   const { currentUser } = useUser()
@@ -41,7 +26,6 @@ const InquiryHistoryPage: React.FC = () => {
   const [filterType, setFilterType] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
   const [showOrderModal, setShowOrderModal] = useState(false)
-  const [selectedProduct, setSelectedProduct] = useState<any>(null)
   
  
 
@@ -129,7 +113,6 @@ const InquiryHistoryPage: React.FC = () => {
   }
 
   const handleProductSelect = (product: any) => {
-    setSelectedProduct(product)
     setShowOrderModal(false)
     // 선택된 상품 정보를 문의 작성 페이지로 전달할 수 있도록 처리
     console.log('선택된 상품:', product)

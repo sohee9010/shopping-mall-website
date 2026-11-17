@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { 
   getSearchSuggestions, 
@@ -31,7 +31,6 @@ const SearchComponent: React.FC = () => {
   const [relatedTerms, setRelatedTerms] = useState<string[]>([])
   const [userHistory, setUserHistory] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
-  const [showFilters, setShowFilters] = useState(true)
   const [filters, setFilters] = useState<SearchFilters>({
     sortBy: 'sales',
     sortOrder: 'desc'

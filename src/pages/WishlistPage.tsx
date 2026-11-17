@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useWishlistContext } from '../context/WishlistContext'
 import { useUser } from '../context/UserContext'
 import Sidebar from '../components/Sidebar'
@@ -12,7 +12,6 @@ const WishlistPage: React.FC = () => {
   const [user, setUser] = useState<any>(null)
   const { wishlistItems, removeFromWishlist, getWishlistCount, clearWishlist } = useWishlistContext()
   const { currentUser } = useUser()
-  const navigate = useNavigate()
 
   useEffect(() => {
     if (currentUser) {
@@ -174,7 +173,7 @@ const WishlistPage: React.FC = () => {
                       </Link>
                       <button
                         className="absolute top-2 right-2 w-8 h-8 bg-white border border-gray-300 rounded-full flex items-center justify-center text-gray-600 hover:bg-red-500 hover:text-white hover:border-red-500 transition-colors duration-300"
-                        onClick={() => removeFromWishlist(String(item.id))}
+                        onClick={() => removeFromWishlist(item.id)}
                         title="찜 해제"
                       >
                         ×

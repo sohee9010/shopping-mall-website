@@ -2,7 +2,7 @@ import { supabase } from './supabase'
 
 export interface Inquiry {
   id?: string
-  user_id?: string
+  user_id?: string | null
   inquiry_type: string
   category: string
   title: string
@@ -13,7 +13,7 @@ export interface Inquiry {
   tenant?: string
   reply_content?: string
   reply_date?: string
-  image_url?: string
+  image_url?: string | null
   email: string
   phone?: string
   sms_notification?: boolean
@@ -21,10 +21,10 @@ export interface Inquiry {
   updated_at?: string
   assigned_admin_id?: number
   tenant_id?: number
-  product_id?: number
-  product_name?: string
-  product_brand?: string
-  order_id?: string
+  product_id?: number | null
+  product_name?: string | null
+  product_brand?: string | null
+  order_id?: string | null
 }
 
 export interface InquiryProduct {
@@ -71,7 +71,7 @@ const calculatePriority = async (inquiryData: any): Promise<string> => {
   let priorityScore = 0
   
   // 1. 문의 유형별 가중치
-  const typeWeights = {
+  const typeWeights: Record<string, number> = {
     '주문/결제': 3,    // 결제 관련은 높은 우선순위
     '배송': 2,         // 배송 문제도 중요
     '상품': 1,         // 상품 문의는 보통

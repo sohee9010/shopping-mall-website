@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import type { OrderItem } from './orderService'
 
 export interface BrandCustomer {
   id: string
@@ -64,7 +65,7 @@ export const getBrandCustomers = async (brandName: string): Promise<BrandCustome
     if (brandOrders.length > 0) {
       console.log('📋 브랜드 주문 목록:', brandOrders.map(o => ({
         id: o.id.slice(0, 8),
-        brands: o.items.map(item => item.brand).filter(Boolean)
+        brands: o.items.map((item: OrderItem) => item.brand).filter(Boolean)
       })))
     }
 
@@ -109,8 +110,8 @@ export const getBrandCustomers = async (brandName: string): Promise<BrandCustome
 
       // 해당 브랜드 상품의 금액만 계산
       const brandItemsValue = order.items
-        .filter(item => item.brand?.toLowerCase() === brandName.toLowerCase())
-        .reduce((sum, item) => sum + (item.price * item.quantity), 0)
+        .filter((item: OrderItem) => item.brand?.toLowerCase() === brandName.toLowerCase())
+        .reduce((sum: number, item: OrderItem) => sum + (item.price * item.quantity), 0)
 
       if (!customerMap.has(userId)) {
         customerMap.set(userId, {

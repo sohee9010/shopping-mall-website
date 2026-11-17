@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import UserInfoModal from '../components/UserInfoModal'
-import { getUserOrders, migrateLocalOrdersToDatabase, Order, OrderItem, updateOrderStatus, cancelOrder } from '../services/orderService'
+import { getUserOrders, migrateLocalOrdersToDatabase, Order, updateOrderStatus, cancelOrder } from '../services/orderService'
 import { useUser } from '../context/UserContext'
 
 
@@ -24,7 +24,7 @@ const OrderTracking: React.FC = () => {
       }
     }
 
-    const handleUserUpdate = (updatedUser: any) => {
+    const handleUserUpdate = () => {
       // 사용자 정보 업데이트 후 주문 목록 새로고침
       loadOrders()
     }
@@ -161,35 +161,6 @@ const OrderTracking: React.FC = () => {
         return dateMatch && productMatch
     })
 
-    const cleanupDuplicateOrders = async () => {
-        // localStorage 제거
-        // const allOrders = JSON.parse(localStorage.getItem('orders') || '[]')
-        // const user = localStorage.getItem('currentUser') ? JSON.parse(localStorage.getItem('currentUser') || '') : null
-        // const userOrders = allOrders.filter((order: Order) => 
-        //     user && (order.user_id === user.id || order.user_id === user.email || order.user_id === user.name)
-        // )
-
-        // const seenOrderIds = new Set<string>()
-        // const uniqueOrders: Order[] = []
-
-        // userOrders.forEach(order => {
-        //     if (!seenOrderIds.has(order.id)) {
-        //         uniqueOrders.push(order)
-        //         seenOrderIds.add(order.id)
-        //     }
-        // })
-
-        // // 데이터베이스에서 주문 데이터 다시 가져오기
-        // try {
-        //     const userOrders = await getUserOrders(user.id || user.email || user.name)
-        //     setOrders(userOrders)
-        //     alert('주문 데이터가 데이터베이스에서 새로고침되었습니다.')
-        // } catch (error) {
-        //     console.error('주문 데이터 새로고침 중 오류 발생:', error)
-        //     alert('주문 데이터 새로고침에 실패했습니다.')
-        // }
-    }
-
     if (loading) {
         return (
             <div className="py-10 min-h-screen bg-gray-50 flex items-center justify-center">
@@ -223,88 +194,6 @@ const OrderTracking: React.FC = () => {
                         <div className="mb-10">
                             <h1 className="text-3xl font-bold text-gray-800 m-0 mb-3">주문확인 / 배송조회</h1>
                             <p className="text-base text-gray-600 m-0">고객님의 주문내역을 확인하실 수 있습니다.</p>
-                            
-                            {/* 테스트용 주문 데이터 생성 버튼 */}
-                            <div className="mt-4">
-                                <button 
-                                    onClick={() => {
-                                        if (currentUser) {
-                                            const testOrder: Order = {
-                                                id: `TEST_ORDER_${Date.now()}`,
-                                                user_id: currentUser.id || currentUser.email || currentUser.name,
-                                                order_date: new Date().toISOString(),
-                                                status: '결제완료',
-                                                total_amount: 50000,
-                                                payment_method: '카드',
-                                                payment_key: `TEST_PAYMENT_${Date.now()}`,
-                                                items: [
-                                                    {
-                                                        product_id: 999,
-                                                        name: '테스트 상품',
-                                                        price: 50000,
-                                                        quantity: 1,
-                                                        image: '/placeholder-image.jpg'
-                                                    }
-                                                ],
-                                                shipping_address: '테스트 주소',
-                                                recipient_name: currentUser.name,
-                                                recipient_phone: '010-1234-5678',
-                                                created_at: new Date().toISOString(),
-                                                updated_at: new Date().toISOString()
-                                            }
-                                            
-                                            // localStorage 제거
-                                            // const existingOrders = JSON.parse(localStorage.getItem('orders') || '[]')
-                                            // const updatedOrders = [...existingOrders, testOrder]
-                                            // localStorage.setItem('orders', JSON.stringify(updatedOrders))
-                                            
-                                            alert('테스트 주문이 추가되었습니다! 페이지를 새로고침하세요.')
-                                        }
-                                    }}
-                                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors"
-                                >
-                                    테스트 주문 추가
-                                </button>
-                                
-                                {/* 중복 데이터 정리 버튼 */}
-                                <button 
-                                    onClick={cleanupDuplicateOrders}
-                                    className="ml-2 bg-orange-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-orange-700 transition-colors"
-                                >
-                                    중복 데이터 정리
-                                </button>
-                                
-                                {/* 디버깅 정보 버튼 */}
-                                <button 
-                                    onClick={() => {
-                                        // localStorage 제거
-                                        // const allOrders = JSON.parse(localStorage.getItem('orders') || '[]')
-                                        // const user = localStorage.getItem('currentUser') ? JSON.parse(localStorage.getItem('currentUser') || '') : null
-                                        // const userOrders = allOrders.filter((order: Order) => 
-                                        //     user && (order.user_id === user.id || order.user_id === user.email || order.user_id === user.name)
-                                        // )
-                                        alert(`디버깅 정보:\n현재 사용자: ${currentUser ? currentUser.email || currentUser.name : '없음'}`)
-                                    }}
-                                    className="ml-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition-colors"
-                                >
-                                    디버깅 정보
-                                </button>
-                                
-                                {/* 로컬스토리지 초기화 버튼 */}
-                                <button 
-                                    onClick={() => {
-                                        if (confirm('로컬스토리지의 모든 주문 데이터를 삭제하시겠습니까?')) {
-                                            // localStorage.removeItem('orders')
-                                            // localStorage.removeItem('processedPayments')
-                                            setOrders([])
-                                            alert('모든 주문 데이터가 삭제되었습니다.')
-                                        }
-                                    }}
-                                    className="ml-2 bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700 transition-colors"
-                                >
-                                    데이터 초기화
-                                </button>
-                            </div>
                         </div>
 
                         {/* 검색 필터 */}

@@ -526,7 +526,7 @@ export const getRelatedProducts = async (productId: number, categoryId: number, 
 export const getCategoryById = async (categoryId: number): Promise<Category | null> => {
     try {
         // 먼저 categories_level2에서 찾기
-        const { data: level2Data, error: level2Error } = await supabase
+        const { data: level2Data } = await supabase
             .from('categories_level2')
             .select('*')
             .eq('id', categoryId)
@@ -545,7 +545,7 @@ export const getCategoryById = async (categoryId: number): Promise<Category | nu
         }
 
         // categories_level1에서 찾기
-        const { data: level1Data, error: level1Error } = await supabase
+        const { data: level1Data } = await supabase
             .from('categories_level1')
             .select('*')
             .eq('id', categoryId)
