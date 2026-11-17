@@ -1,23 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
-
-// Supabase 프로젝트 설정
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.REACT_APP_SUPABASE_URL || 'https://toueihqbuqbmkatatonp.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdWVpaHFidXFibWthdGF0b25wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwNTAxODksImV4cCI6MjA4NDYyNjE4OX0.8kduDOHf2EBEpNjCxOeEfpGhhjBN99d-jt_sM7HZCts';
-
-// 디버깅을 위한 로그
-console.log('🔍 환경변수 확인:');
-console.log('VITE_SUPABASE_URL:', supabaseUrl);
-console.log('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? '설정됨' : '미설정');
-
-let supabase;
-
-if (supabaseUrl && supabaseAnonKey) {
-  console.log('✅ Supabase 클라이언트 생성 성공');
-  supabase = createClient(supabaseUrl, supabaseAnonKey);
-} else {
-  console.warn('⚠️ Supabase 환경변수가 설정되지 않았습니다. .env 파일을 확인해주세요.');
-  supabase = { /* 더미 클라이언트 */ };
-}
+// 관리자 앱도 고객 앱과 같은 Supabase 클라이언트를 사용한다 (환경 변수 검증은 src/config/env.ts에서 처리)
+// 이전에는 이 파일에서 클라이언트를 따로 하나 더 만들어, 한 브라우저에 인증 클라이언트가 2개 생겼다.
+import { supabase } from '../../../services/supabase';
 
 export { supabase };
 

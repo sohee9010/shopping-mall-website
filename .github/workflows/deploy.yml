@@ -35,7 +35,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # 브라우저용 공개 키는 저장소 Settings > Secrets and variables > Actions > Variables 에 등록한다.
+      # 값이 비어 있으면 앱이 시작하자마자 오류(흰 화면)가 나므로, 배포 전에 실패시켜 막는다.
+      - name: Check required variables
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_TOSS_CLIENT_KEY: ${{ vars.VITE_TOSS_CLIENT_KEY }}
+        run: |
+          missing=0
+          for name in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY VITE_TOSS_CLIENT_KEY; do
+            if [ -z "${!name}" ]; then echo "::error::Actions 변수 $name 이(가) 설정되지 않았습니다"; missing=1; fi
+          done
+          exit $missing
+
       - name: Build
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_TOSS_CLIENT_KEY: ${{ vars.VITE_TOSS_CLIENT_KEY }}
         run: npm run build
 
       - name: Create 404 file for GitHub Pages SPA

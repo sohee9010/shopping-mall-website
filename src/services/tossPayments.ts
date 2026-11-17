@@ -1,7 +1,8 @@
 import { loadTossPayments } from '@tosspayments/payment-sdk'
+import { env } from '../config/env'
 
-// 토스페이먼츠 클라이언트 키 (실제 운영시에는 환경변수로 관리)
-const CLIENT_KEY = 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq'
+// 토스페이먼츠 클라이언트 키 (브라우저용 공개 키). 값은 환경 변수 VITE_TOSS_CLIENT_KEY에서 읽는다
+const CLIENT_KEY = env.tossClientKey
 
 export interface PaymentData {
   amount: number
