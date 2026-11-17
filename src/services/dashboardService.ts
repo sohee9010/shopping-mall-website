@@ -1,5 +1,8 @@
 import { supabase } from './supabase'
 
+// merchant_orders(0009)가 돌려주는 주문 한 건: items에는 이 브랜드의 상품 줄만 들어 있다
+type MerchantOrderRow = { id: string; user_id: string | null; status: string; order_date: string; total_amount: number; customer_name: string | null; items: { brand: string; name: string; price: number; quantity: number }[] }
+
 export interface DashboardStats {
   todayOrders: number
   totalProducts: number
@@ -27,6 +30,8 @@ export interface TopProduct {
   brand?: string
 }
 
+// 입점사 주문 데이터는 merchant_orders(자기 브랜드 상품 줄만, 0009)에서 읽는다.
+// 이전에는 orders 전체를 읽어 화면에서 브랜드로 걸렀다 (P19)
 // 입점사별 대시보드 통계 조회
 export const getMerchantDashboardStats = async (merchantBrand: string): Promise<DashboardStats | null> => {
   try {
@@ -35,8 +40,7 @@ export const getMerchantDashboardStats = async (merchantBrand: string): Promise<
 
     // 1. 오늘 주문 수
     const { data: todayOrdersData, error: todayOrdersError } = await supabase
-      .from('orders')
-      .select('id, items')
+      .rpc('merchant_orders') // 컬럼 선택(select) 뒤에는 필터를 붙일 수 없어 전체 컬럼을 받는다
       .gte('created_at', `${today}T00:00:00`)
       .lte('created_at', `${today}T23:59:59`)
 
@@ -45,14 +49,13 @@ export const getMerchantDashboardStats = async (merchantBrand: string): Promise<
     }
 
     // 브랜드별 필터링 (주문 아이템에서 브랜드 확인)
-    const todayMerchantOrders = todayOrdersData?.filter(order => 
+    const todayMerchantOrders = todayOrdersData?.filter((order: MerchantOrderRow) => 
       order.items && order.items.some((item: any) => item.brand === merchantBrand)
     ) || []
 
     // 2. 어제 주문 수 (변화율 계산용)
     const { data: yesterdayOrdersData, error: yesterdayOrdersError } = await supabase
-      .from('orders')
-      .select('id, items')
+      .rpc('merchant_orders') // 컬럼 선택(select) 뒤에는 필터를 붙일 수 없어 전체 컬럼을 받는다
       .gte('created_at', `${yesterday}T00:00:00`)
       .lte('created_at', `${yesterday}T23:59:59`)
 
@@ -60,7 +63,7 @@ export const getMerchantDashboardStats = async (merchantBrand: string): Promise<
       console.error('어제 주문 조회 오류:', yesterdayOrdersError)
     }
 
-    const yesterdayMerchantOrders = yesterdayOrdersData?.filter(order => 
+    const yesterdayMerchantOrders = yesterdayOrdersData?.filter((order: MerchantOrderRow) => 
       order.items && order.items.some((item: any) => item.brand === merchantBrand)
     ) || []
 
@@ -76,8 +79,7 @@ export const getMerchantDashboardStats = async (merchantBrand: string): Promise<
 
     // 4. 총 고객 수 (해당 브랜드 상품을 구매한 고객)
     const { data: customersData, error: customersError } = await supabase
-      .from('orders')
-      .select('user_id, items')
+      .rpc('merchant_orders')
       .not('user_id', 'is', null)
 
     if (customersError) {
@@ -86,7 +88,7 @@ export const getMerchantDashboardStats = async (merchantBrand: string): Promise<
 
     // 브랜드별 고객 필터링
     const merchantCustomers = new Set()
-    customersData?.forEach(order => {
+    customersData?.forEach((order: MerchantOrderRow) => {
       if (order.items && order.items.some((item: any) => item.brand === merchantBrand)) {
         merchantCustomers.add(order.user_id)
       }
@@ -94,7 +96,7 @@ export const getMerchantDashboardStats = async (merchantBrand: string): Promise<
 
     // 5. 오늘 매출
     let todayRevenue = 0
-    todayMerchantOrders.forEach(order => {
+    todayMerchantOrders.forEach((order: MerchantOrderRow) => {
       if (order.items) {
         order.items.forEach((item: any) => {
           if (item.brand === merchantBrand) {
@@ -106,7 +108,7 @@ export const getMerchantDashboardStats = async (merchantBrand: string): Promise<
 
     // 6. 어제 매출 (변화율 계산용)
     let yesterdayRevenue = 0
-    yesterdayMerchantOrders.forEach(order => {
+    yesterdayMerchantOrders.forEach((order: MerchantOrderRow) => {
       if (order.items) {
         order.items.forEach((item: any) => {
           if (item.brand === merchantBrand) {
@@ -144,15 +146,8 @@ export const getMerchantDashboardStats = async (merchantBrand: string): Promise<
 export const getMerchantRecentOrders = async (merchantBrand: string, limit: number = 5): Promise<RecentOrder[]> => {
   try {
     const { data: ordersData, error } = await supabase
-      .from('orders')
-      .select(`
-        id,
-        total_amount,
-        status,
-        order_date,
-        items,
-        users!inner(name)
-      `)
+      .rpc('merchant_orders')
+      .select('id, total_amount, status, order_date, items, customer_name')
       .order('created_at', { ascending: false })
       .limit(50) // 더 많이 가져와서 브랜드 필터링 후 제한
 
@@ -171,7 +166,7 @@ export const getMerchantRecentOrders = async (merchantBrand: string, limit: numb
         
         merchantOrders.push({
           id: order.id,
-          customer_name: (order.users as unknown as { name: string } | null)?.name || '알 수 없음', // N:1 조인이라 실제로는 객체
+          customer_name: order.customer_name || '알 수 없음',
           product_name: merchantItem?.name || '상품 정보 없음',
           total_amount: merchantItem ? merchantItem.price * merchantItem.quantity : 0,
           status: order.status,

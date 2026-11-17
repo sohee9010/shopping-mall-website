@@ -25,7 +25,7 @@ const Orders = () => {
 
   // 주문 데이터를 UI 형식으로 변환하는 함수
   const transformOrderData = (order) => {
-    const products = order.items ? order.items.map(item => item.name) : ['상품 정보 없음'];
+    const products = (order.order_items ?? order.items)?.map(item => item.product_name ?? item.name) ?? ['상품 정보 없음'];
     
     return {
       id: `#${order.id.slice(0, 8)}`, // UUID의 앞 8자리만 표시
@@ -42,7 +42,10 @@ const Orders = () => {
       paymentKey: order.payment_key,
       trackingNumber: order.tracking_number,
       estimatedDelivery: order.estimated_delivery ? new Date(order.estimated_delivery).toISOString().split('T')[0] : null,
-      items: order.items || [],
+      // 본사는 order_items(줄별 배송 상태·송장 포함), 입점사는 merchant_orders가 준 자기 줄
+      items: order.order_items
+        ? order.order_items.map(line => ({ line_id: line.id, name: line.product_name, brand: line.brand, option_text: line.option_text, price: line.unit_price, quantity: line.quantity, status: line.status, tracking_company: line.tracking_company, tracking_number: line.tracking_number }))
+        : order.items || [],
       cancelReason: order.cancel_reason || null // 취소 사유 추가
     };
   };
@@ -54,88 +57,25 @@ const Orders = () => {
       console.log('📊 주문 데이터 조회 시작')
       let query = supabase
         .from('orders')
-        .select('*')
+        .select('*, order_items(*)')
         .order('created_at', { ascending: false });
 
       // 사용자 역할에 따른 필터링
       if (roleInfo?.role === 'merchant') {
-        console.log('🏪 입점사 관리자 모드')
-        // 입점사 관리자: 해당 브랜드의 주문만 조회
-        // items 배열에서 특정 브랜드의 상품이 포함된 주문을 찾아야 함
-        // 일단 모든 주문을 가져온 후 클라이언트에서 필터링
-        const { data, error } = await query;
-        
+        // 입점사: 서버 함수 merchant_orders가 자기 브랜드 상품 줄이 있는 주문만, 상품 줄도 자기 것만 돌려준다.
+        // (이전에는 주문 전체를 읽어 화면에서 브랜드로 걸렀기 때문에 다른 브랜드 상품·주문 총액이 그대로 노출됐다 — P19)
+        const { data, error } = await supabase.rpc('merchant_orders');
         if (error) {
-          console.error('❌ 주문 데이터 조회 오류:', error);
+          console.error('주문 데이터 조회 오류:', error);
           return;
         }
-
-        console.log('📦 조회된 전체 주문 수:', data?.length || 0);
-
-        // 입점사 관리자의 브랜드명 추출 - brand_admins 테이블에서 조회
-        // 브랜드는 DB 역할(user_roles -> brand_admins)에서 가져온다. 데이터 자체도 RLS가 자기 브랜드 주문만 돌려준다
-        const merchantBrand = roleInfo.brandName;
-        
-        console.log('🏷️ 입점사 브랜드:', merchantBrand);
-        
-        // 해당 브랜드의 상품이 포함된 주문만 필터링
-        const filteredOrders = data.filter(order => {
-          if (!order.items || !Array.isArray(order.items)) {
-            console.log('❌ 주문에 items 데이터 없음:', order.id);
-            return false;
-          }
-          
-          // 각 주문의 브랜드 정보 상세 로그
-          console.log('🔍 주문 검사:', order.id);
-          console.log('📦 주문 상품들:', order.items.map(item => ({
-            name: item.name,
-            brand: item.brand,
-            brandType: typeof item.brand
-          })));
-          console.log('🎯 찾는 브랜드:', merchantBrand, typeof merchantBrand);
-          
-          const hasBrandItem = order.items.some(item => {
-            // "Unknown" 브랜드는 제외하고 정확한 브랜드 매칭만
-            const match = item.brand === merchantBrand && merchantBrand !== 'Unknown';
-            console.log(`   ${item.name}: "${item.brand}" === "${merchantBrand}" (브랜드가 Unknown이 아님: ${merchantBrand !== 'Unknown'}) ? ${match}`);
-            return match;
-          });
-          
-          console.log(`${hasBrandItem ? '✅' : '❌'} 주문 ${order.id} 매칭 결과: ${hasBrandItem}`);
-          return hasBrandItem;
-        });
-
-        console.log('🔍 필터링된 주문 수:', filteredOrders.length);
-
-        // 사용자 이메일 정보를 별도로 조회
-        const userIds = [...new Set(filteredOrders.map(order => order.user_id))];
-        console.log('👥 사용자 ID 목록:', userIds);
-        
-        const { data: usersData, error: usersError } = await supabase
-          .from('users')
-          .select('id, email, name')
-          .in('id', userIds);
-
-        if (usersError) {
-          console.error('❌ 사용자 데이터 조회 오류:', usersError);
-        }
-
-        console.log('👤 조회된 사용자 수:', usersData?.length || 0);
-
-        const usersMap = {};
-        if (usersData) {
-          usersData.forEach(user => {
-            usersMap[user.id] = user;
-          });
-        }
-
-        const transformedOrders = filteredOrders.map(order => ({
+        const userIds = [...new Set(data.map(order => order.user_id))];
+        const { data: usersData } = await supabase.from('users').select('id, email').in('id', userIds);
+        const emailOf = Object.fromEntries((usersData ?? []).map(u => [u.id, u.email]));
+        setOrders(data.map(order => ({
           ...transformOrderData(order),
-          customerEmail: usersMap[order.user_id]?.email || '이메일 정보 없음'
-        }));
-        
-        console.log('✅ 최종 주문 목록:', transformedOrders.length, '건');
-        setOrders(transformedOrders);
+          customerEmail: emailOf[order.user_id] || '이메일 정보 없음'
+        })));
       } else {
         // HQ 관리자: 모든 주문 조회
         const { data, error } = await query;
@@ -186,85 +126,39 @@ const Orders = () => {
     setShowDetailModal(true);
   };
 
+  // 주문 상태 변경: 0009 이후 입점사·본사 모두 서버 함수로만 바꾼다 (orders 직접 수정 불가)
+  //   - 발송: ship_order_items → 자기 브랜드 상품 줄에만 송장 입력, 주문 상태(부분배송/배송중)는 서버가 계산
+  //   - 배송완료: deliver_order_items / 취소 승인·거부: decide_cancel_request
+  // (이전에는 주문 전체의 status를 직접 바꿔 다른 브랜드 상품까지 배송중이 됐다 — P19)
+  // 일괄 결제확인·일괄 배송처리 버튼은 제거했다: 결제확인은 Toss 승인으로만 되고, 발송은 주문마다 송장이 필요하다
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
-    try {
-      // orderId는 '#12345678' 형태이므로 원본 UUID를 찾아야 함
-      const order = orders.find(o => o.id === orderId);
-      if (!order) {
-        alert('주문을 찾을 수 없습니다.');
-        return;
-      }
-
-      // Supabase에서 주문 상태 업데이트
-      const { error } = await supabase
-        .from('orders')
-        .update({ 
-          status: newStatus,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', order.originalId);
-
-      if (error) {
-        console.error('주문 상태 업데이트 오류:', error);
-        alert('주문 상태 변경에 실패했습니다.');
-        return;
-      }
-
-      // UI 상태 업데이트
-      setOrders(orders.map(order => 
-        order.id === orderId ? { ...order, status: newStatus } : order
-      ));
-      alert(`주문 상태가 '${newStatus}'로 변경되었습니다.`);
-    } catch (error) {
-      console.error('주문 상태 변경 실패:', error);
-      alert('주문 상태 변경에 실패했습니다.');
-    }
-  };
-
-  const handleBulkStatusUpdate = async (status) => {
-    const eligibleOrders = orders.filter(order => {
-      if (status === '결제완료') return order.status === '주문접수';
-      if (status === '배송중') return order.status === '결제완료';
-      return false;
-    });
-
-    if (eligibleOrders.length === 0) {
-      alert(`${status}로 변경할 수 있는 주문이 없습니다.`);
+    const order = orders.find(o => o.id === orderId);
+    if (!order) {
+      alert('주문을 찾을 수 없습니다.');
       return;
     }
-
-    if (window.confirm(`${eligibleOrders.length}개 주문을 '${status}' 상태로 변경하시겠습니까?`)) {
-      try {
-        // 선택된 주문들의 원본 ID 추출
-        const orderIds = eligibleOrders.map(order => order.originalId);
-        
-        // Supabase에서 벌크 업데이트
-        const { error } = await supabase
-          .from('orders')
-          .update({ 
-            status: status,
-            updated_at: new Date().toISOString()
-          })
-          .in('id', orderIds);
-
-        if (error) {
-          console.error('벌크 주문 상태 업데이트 오류:', error);
-          alert('주문 상태 변경에 실패했습니다.');
-          return;
-        }
-
-        // UI 상태 업데이트
-        setOrders(orders.map(order => 
-          eligibleOrders.some(eligible => eligible.id === order.id) 
-            ? { ...order, status } 
-            : order
-        ));
-        alert(`${eligibleOrders.length}개 주문이 '${status}' 상태로 변경되었습니다.`);
-      } catch (error) {
-        console.error('벌크 주문 상태 변경 실패:', error);
-        alert('주문 상태 변경에 실패했습니다.');
-      }
+    let result;
+    if (newStatus === '배송중') {
+      const company = window.prompt('택배사를 입력하세요', 'CJ대한통운');
+      if (!company) return;
+      const trackingNumber = window.prompt('송장번호를 입력하세요');
+      if (!trackingNumber) return;
+      result = await supabase.rpc('ship_order_items', { p_order_id: order.originalId, p_tracking_company: company, p_tracking_number: trackingNumber });
+    } else if (newStatus === '배송완료') {
+      result = await supabase.rpc('deliver_order_items', { p_order_id: order.originalId });
+    } else if (order.status === '취소요청' && (newStatus === '주문취소' || newStatus === '결제완료')) {
+      result = await supabase.rpc('decide_cancel_request', { p_order_id: order.originalId, p_approve: newStatus === '주문취소' });
+    } else {
+      alert('이 화면에서 바꿀 수 없는 상태입니다.');
+      return;
     }
+    if (result.error) {
+      console.error('주문 상태 변경 오류:', result.error);
+      alert(result.error.message);
+      return;
+    }
+    await fetchOrders(); // 주문 상태는 서버가 계산하므로 다시 불러온다
+    alert('처리되었습니다.');
   };
 
   const handleExportOrders = () => {
@@ -581,7 +475,7 @@ const Orders = () => {
                             <CheckCircle size={14} />
                           </button>
                         )}
-                        {order.status === '결제완료' && (
+                        {['결제완료', '부분배송'].includes(order.status) && order.items.some(item => (item.status ?? '배송준비') === '배송준비') && (
                           <button 
                             className="btn btn-warning" 
                             style={{ padding: '0.25rem 0.5rem' }}
@@ -619,20 +513,6 @@ const Orders = () => {
         </div>
         
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          <button 
-            className="btn btn-success"
-            onClick={() => handleBulkStatusUpdate('결제완료')}
-          >
-            <CheckCircle size={16} />
-            일괄 결제확인
-          </button>
-          <button 
-            className="btn btn-warning"
-            onClick={() => handleBulkStatusUpdate('배송중')}
-          >
-            <Truck size={16} />
-            일괄 배송처리
-          </button>
           <button 
             className="btn btn-primary"
             onClick={handleExportOrders}
@@ -771,8 +651,14 @@ const Orders = () => {
                         <Package size={20} color="#666" />
                       </div>
                       <div>
+                        {/* 이전에는 상품명만 쓰고 수량을 '1개'로 고정 표시했다. 상품 줄의 실제 옵션·수량·배송 상태를 표시 */}
                         <div style={{ fontWeight: '600' }}>{product}</div>
-                        <div style={{ fontSize: '0.875rem', color: '#666' }}>수량: 1개</div>
+                        <div style={{ fontSize: '0.875rem', color: '#666' }}>
+                          {selectedOrder.items[index]?.option_text ? `${selectedOrder.items[index].option_text} · ` : ''}
+                          수량: {selectedOrder.items[index]?.quantity ?? 1}개
+                          {selectedOrder.items[index]?.status ? ` · ${selectedOrder.items[index].status}` : ''}
+                          {selectedOrder.items[index]?.tracking_number ? ` (${selectedOrder.items[index].tracking_company ?? ''} ${selectedOrder.items[index].tracking_number})` : ''}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -785,7 +671,7 @@ const Orders = () => {
                   textAlign: 'right'
                 }}>
                   <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#007bff' }}>
-                    총 결제금액: ₩{selectedOrder.amount.toLocaleString()}
+                    {roleInfo?.role === 'merchant' ? '우리 브랜드 상품 금액' : '총 결제금액'}: ₩{selectedOrder.amount.toLocaleString()}
                   </div>
                   <div style={{ 
                     fontSize: '0.875rem', 
@@ -793,7 +679,7 @@ const Orders = () => {
                     marginTop: '0.5rem',
                     fontStyle: 'italic'
                   }}>
-                    ※ 총 결제금액에는 상품가격과 배송비가 포함되어 있습니다.
+                    {roleInfo?.role === 'merchant' ? '※ 이 주문에서 우리 브랜드 상품 금액만 표시합니다 (다른 브랜드 상품·배송비 제외).' : '※ 총 결제금액에는 상품가격과 배송비가 포함되어 있습니다.'}
                   </div>
                 </div>
               </div>
@@ -813,7 +699,19 @@ const Orders = () => {
                   결제 확인
                 </button>
               )}
-              {selectedOrder.status === '결제완료' && (
+              {['부분배송', '배송중'].includes(selectedOrder.status) && selectedOrder.items.some(item => item.status === '배송중') && (
+                <button
+                  className="btn btn-success"
+                  onClick={() => {
+                    handleUpdateOrderStatus(selectedOrder.id, '배송완료');
+                    setShowDetailModal(false);
+                  }}
+                >
+                  <CheckCircle size={16} />
+                  배송 완료
+                </button>
+              )}
+              {['결제완료', '부분배송'].includes(selectedOrder.status) && selectedOrder.items.some(item => (item.status ?? '배송준비') === '배송준비') && (
                 <button 
                   className="btn btn-warning"
                   onClick={() => {
