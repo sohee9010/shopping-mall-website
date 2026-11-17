@@ -161,35 +161,6 @@ const OrderTracking: React.FC = () => {
         return dateMatch && productMatch
     })
 
-    const cleanupDuplicateOrders = async () => {
-        // localStorage 제거
-        // const allOrders = JSON.parse(localStorage.getItem('orders') || '[]')
-        // const user = localStorage.getItem('currentUser') ? JSON.parse(localStorage.getItem('currentUser') || '') : null
-        // const userOrders = allOrders.filter((order: Order) => 
-        //     user && (order.user_id === user.id || order.user_id === user.email || order.user_id === user.name)
-        // )
-
-        // const seenOrderIds = new Set<string>()
-        // const uniqueOrders: Order[] = []
-
-        // userOrders.forEach(order => {
-        //     if (!seenOrderIds.has(order.id)) {
-        //         uniqueOrders.push(order)
-        //         seenOrderIds.add(order.id)
-        //     }
-        // })
-
-        // // 데이터베이스에서 주문 데이터 다시 가져오기
-        // try {
-        //     const userOrders = await getUserOrders(user.id || user.email || user.name)
-        //     setOrders(userOrders)
-        //     alert('주문 데이터가 데이터베이스에서 새로고침되었습니다.')
-        // } catch (error) {
-        //     console.error('주문 데이터 새로고침 중 오류 발생:', error)
-        //     alert('주문 데이터 새로고침에 실패했습니다.')
-        // }
-    }
-
     if (loading) {
         return (
             <div className="py-10 min-h-screen bg-gray-50 flex items-center justify-center">
@@ -225,32 +196,8 @@ const OrderTracking: React.FC = () => {
                             <p className="text-base text-gray-600 m-0">고객님의 주문내역을 확인하실 수 있습니다.</p>
                             
                             <div className="mt-4">
-                                {/* 중복 데이터 정리 버튼 */}
-                                <button
-                                    onClick={cleanupDuplicateOrders}
-                                    className="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-orange-700 transition-colors"
-                                >
-                                    중복 데이터 정리
-                                </button>
-                                
-                                {/* 디버깅 정보 버튼 */}
-                                <button 
-                                    onClick={() => {
-                                        // localStorage 제거
-                                        // const allOrders = JSON.parse(localStorage.getItem('orders') || '[]')
-                                        // const user = localStorage.getItem('currentUser') ? JSON.parse(localStorage.getItem('currentUser') || '') : null
-                                        // const userOrders = allOrders.filter((order: Order) => 
-                                        //     user && (order.user_id === user.id || order.user_id === user.email || order.user_id === user.name)
-                                        // )
-                                        alert(`디버깅 정보:\n현재 사용자: ${currentUser ? currentUser.email || currentUser.name : '없음'}`)
-                                    }}
-                                    className="ml-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition-colors"
-                                >
-                                    디버깅 정보
-                                </button>
-                                
                                 {/* 로컬스토리지 초기화 버튼 */}
-                                <button 
+                                <button
                                     onClick={() => {
                                         if (confirm('로컬스토리지의 모든 주문 데이터를 삭제하시겠습니까?')) {
                                             // localStorage.removeItem('orders')
@@ -259,7 +206,7 @@ const OrderTracking: React.FC = () => {
                                             alert('모든 주문 데이터가 삭제되었습니다.')
                                         }
                                     }}
-                                    className="ml-2 bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700 transition-colors"
+                                    className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700 transition-colors"
                                 >
                                     데이터 초기화
                                 </button>
