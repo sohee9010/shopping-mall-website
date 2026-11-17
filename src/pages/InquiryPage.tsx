@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { FiMessageSquare, FiFileText, FiX, FiShoppingBag } from 'react-icons/fi'
 import { useUser } from '../context/UserContext'
-import { getUserOrders, Order } from '../services/orderService'
+import { getUserOrders, Order, orderItemOptionText } from '../services/orderService'
 import { createInquiry } from '../services/inquiryService'
 
 interface InquiryForm {
@@ -670,11 +670,8 @@ const InquiryPage: React.FC = () => {
                                 <p className="text-sm text-gray-600">
                                   {formatPrice(item.price)} × {item.quantity}개
                                 </p>
-                                {item.size && (
-                                  <p className="text-xs text-gray-500">사이즈: {item.size}</p>
-                                )}
-                                {item.color && (
-                                  <p className="text-xs text-gray-500">색상: {item.color}</p>
+                                {orderItemOptionText(item) && (
+                                  <p className="text-xs text-gray-500">옵션: {orderItemOptionText(item)}</p>
                                 )}
                               </div>
                               <div className="text-right">

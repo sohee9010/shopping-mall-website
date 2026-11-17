@@ -6,7 +6,10 @@ import { useWishlistContext } from '../context/WishlistContext'
 import { useRecentViewContext } from '../context/RecentViewContext'
 import { useUser } from '../context/UserContext'
 import { getProductById } from '../services/productService'
+import { getProductVariants, formatOptionText, isPurchasable, ProductVariantInfo, ProductVariant } from '../services/variantService'
 import { Product } from '../types'
+
+const MAX_QUANTITY = 10
 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
@@ -16,8 +19,11 @@ const ProductDetailPage: React.FC = () => {
   const { addToRecent } = useRecentViewContext()
   const { currentUser } = useUser()
   const [quantity, setQuantity] = useState(1)
-  const [selectedSize, setSelectedSize] = useState('FREE')
-  const [selectedColor, setSelectedColor] = useState('블랙')
+  // 옵션은 상품마다 DB(product_options·product_variants)에서 가져온다.
+  // 이전에는 모든 상품에 색상 3개·사이즈 6개 버튼이 코드에 고정되어 있었다 (P17: 향수에도 XS~XL)
+  const [variantInfo, setVariantInfo] = useState<ProductVariantInfo>({ options: [], variants: [] })
+  const [selected1, setSelected1] = useState<string | null>(null)
+  const [selected2, setSelected2] = useState<string | null>(null)
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -43,6 +49,10 @@ const ProductDetailPage: React.FC = () => {
           
           if (productData) {
             setProduct(productData)
+            setVariantInfo(await getProductVariants(productData.id))
+            setSelected1(null)
+            setSelected2(null)
+            setQuantity(1)
             // 상품이 로드되면 최근 본 상품에 추가
             addToRecent(productData)
           } else {
@@ -98,20 +108,96 @@ const ProductDetailPage: React.FC = () => {
     )
   }
 
-  const handleAddToCart = () => {
+  // ---- 옵션 선택 ----
+  const { options, variants } = variantInfo
+  const hasOption1 = options.some((o) => o.position === 1)
+  const hasOption2 = options.some((o) => o.position === 2)
+  const optionName = (position: 1 | 2) => options.find((o) => o.position === position)?.name ?? ''
+  const uniqueValues = (key: 'option1' | 'option2') =>
+    variants.map((v) => v[key]).filter((v, i, arr): v is string => !!v && arr.indexOf(v) === i)
+  const values1 = uniqueValues('option1')
+  const values2 = uniqueValues('option2')
+
+  // 고른 옵션 조합에 해당하는 SKU (옵션 없는 상품은 기본 SKU 하나)
+  const selectedVariant: ProductVariant | undefined = variants.find(
+    (v) => (!hasOption1 || v.option1 === selected1) && (!hasOption2 || v.option2 === selected2)
+  )
+
+  // 이 값을 고르면 살 수 있는 조합이 하나라도 있는가 (품절 조합 버튼 비활성화용)
+  const isValueAvailable = (position: 1 | 2, value: string) =>
+    variants.some(
+      (v) =>
+        isPurchasable(v) &&
+        (position === 1 ? v.option1 === value && (!selected2 || v.option2 === selected2)
+                        : v.option2 === value && (!selected1 || v.option1 === selected1))
+    )
+
+  const unitPrice = product.price + (selectedVariant?.priceDelta ?? 0)
+  const maxQuantity = Math.min(MAX_QUANTITY, selectedVariant?.stock ?? MAX_QUANTITY)
+  const productSoldOut = variants.length > 0 && !variants.some(isPurchasable)
+
+  // 담기·구매 전에 옵션이 골라졌고 재고가 있는지 확인
+  const requirePurchasableVariant = (): ProductVariant | null => {
+    if (!selectedVariant) {
+      alert(`${[hasOption1 && optionName(1), hasOption2 && optionName(2)].filter(Boolean).join('·')}을(를) 선택해 주세요.`)
+      return null
+    }
+    if (!isPurchasable(selectedVariant)) {
+      alert('선택하신 옵션은 품절입니다.')
+      return null
+    }
+    if (quantity > selectedVariant.stock) {
+      alert(`남은 재고는 ${selectedVariant.stock}개입니다.`)
+      return null
+    }
+    return selectedVariant
+  }
+
+  const handleAddToCart = async () => {
     if (!checkLoginStatus()) {
       showLoginRequired()
       return
     }
-    addToCart(product, quantity)
+    const variant = requirePurchasableVariant()
+    if (!variant) return
+    await addToCart(product, quantity, { id: variant.id, optionText: formatOptionText(variant), priceDelta: variant.priceDelta })
     alert(`${product.name}이(가) 장바구니에 추가되었습니다.`)
   }
 
   const handleQuantityChange = (change: number) => {
     const newQuantity = quantity + change
-    if (newQuantity >= 1 && newQuantity <= 10) {
+    if (newQuantity >= 1 && newQuantity <= maxQuantity) {
       setQuantity(newQuantity)
     }
+  }
+
+  // 옵션 버튼 하나 (품절 조합은 비활성화, 추가금 표시)
+  const renderOptionButton = (position: 1 | 2, value: string) => {
+    const isSelected = (position === 1 ? selected1 : selected2) === value
+    const available = isValueAvailable(position, value)
+    const delta = position === 1 && !hasOption2 ? variants.find((v) => v.option1 === value)?.priceDelta ?? 0 : 0
+    return (
+      <button
+        key={value}
+        type="button"
+        disabled={!available}
+        className={`px-4 py-2 border rounded-lg font-medium transition-colors ${
+          isSelected
+            ? 'border-black bg-black text-white'
+            : available
+              ? 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+              : 'border-gray-200 bg-gray-50 text-gray-300 line-through cursor-not-allowed'
+        }`}
+        onClick={() => {
+          if (position === 1) setSelected1(isSelected ? null : value)
+          else setSelected2(isSelected ? null : value)
+          setQuantity(1)
+        }}
+      >
+        {value}
+        {delta > 0 && <span className="ml-1 text-xs">(+{formatPrice(delta)})</span>}
+      </button>
+    )
   }
 
   const toggleWishlist = () => {
@@ -137,30 +223,23 @@ const ProductDetailPage: React.FC = () => {
       return
     }
     
-    console.log('로그인 상태 확인 성공')
-    console.log('상품 정보:', product)
-    console.log('수량:', quantity)
-    console.log('선택된 사이즈:', selectedSize)
-    console.log('선택된 색상:', selectedColor)
-    
-    // 바로구매를 위한 주문 데이터 생성
+    const variant = requirePurchasableVariant()
+    if (!variant) return
+
+    // 바로구매: 고른 SKU를 주문서로 전달 (주문 금액은 주문서에서 서버가 다시 계산)
     const orderData = {
       items: [{
-        product: product,
-        quantity: quantity,
-        selectedSize: selectedSize,
-        selectedColor: selectedColor,
-        price: product.price
+        product: { ...product, price: unitPrice },
+        quantity,
+        variantId: variant.id,
+        optionText: formatOptionText(variant),
+        price: unitPrice
       }],
-      totalAmount: product.price * quantity,
+      totalAmount: unitPrice * quantity,
       isDirectOrder: true // 바로구매 플래그
     }
-    
-    console.log('생성된 주문 데이터:', orderData)
-    
-    // 결제 페이지로 이동하면서 주문 데이터 전달
+
     navigate('/checkout', { state: orderData })
-    console.log('결제 페이지로 이동 시도')
   }
 
   return (
@@ -198,49 +277,43 @@ const ProductDetailPage: React.FC = () => {
               <div className="text-lg text-gray-600 mb-2">{product.brand || '브랜드'}</div>
               <h1 className="text-3xl font-bold text-black mb-6">{product.name}</h1>
 
+              {/* 가격: 이전에는 모든 상품에 '정가 + 10만 원' 취소선과 '10% 할인' 배지를 고정 표시했다(실제 할인 없음) */}
               <div className="flex items-center gap-4 mb-8">
-                <div className="text-lg text-gray-400 line-through">₩{formatPrice(product.price + 100000)}</div>
-                <div className="text-3xl font-bold text-black">₩{formatPrice(product.price)}</div>
-                <div className="px-3 py-1 bg-red-500 text-white text-sm font-semibold rounded">10% 할인</div>
+                <div className="text-3xl font-bold text-black">₩{formatPrice(unitPrice)}</div>
+                {productSoldOut && (
+                  <div className="px-3 py-1 bg-gray-800 text-white text-sm font-semibold rounded">품절</div>
+                )}
               </div>
             </div>
 
             <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">색상</label>
-                <div className="flex gap-3">
-                  {['블랙', '화이트', '베이지'].map(color => (
-                    <button
-                      key={color}
-                      className={`px-4 py-2 border rounded-lg font-medium transition-colors ${selectedColor === color
-                        ? 'border-black bg-black text-white'
-                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                        }`}
-                      onClick={() => setSelectedColor(color)}
-                    >
-                      {color}
-                    </button>
-                  ))}
+              {hasOption1 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    {optionName(1)} {selected1 && <span className="text-gray-500 font-normal">: {selected1}</span>}
+                  </label>
+                  <div className="flex gap-3 flex-wrap">{values1.map((value) => renderOptionButton(1, value))}</div>
                 </div>
-              </div>
+              )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">사이즈</label>
-                <div className="flex gap-3 flex-wrap">
-                  {['XS', 'S', 'M', 'L', 'XL', 'FREE'].map(size => (
-                    <button
-                      key={size}
-                      className={`px-4 py-2 border rounded-lg font-medium transition-colors ${selectedSize === size
-                        ? 'border-black bg-black text-white'
-                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                        }`}
-                      onClick={() => setSelectedSize(size)}
-                    >
-                      {size}
-                    </button>
-                  ))}
+              {hasOption2 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    {optionName(2)} {selected2 && <span className="text-gray-500 font-normal">: {selected2}</span>}
+                  </label>
+                  <div className="flex gap-3 flex-wrap">{values2.map((value) => renderOptionButton(2, value))}</div>
                 </div>
-              </div>
+              )}
+
+              {selectedVariant && (
+                <p className={`text-sm ${isPurchasable(selectedVariant) ? 'text-gray-500' : 'text-red-500'}`}>
+                  {!isPurchasable(selectedVariant)
+                    ? '선택하신 옵션은 품절입니다'
+                    : selectedVariant.stock <= 3
+                      ? `남은 재고 ${selectedVariant.stock}개`
+                      : '구매 가능'}
+                </p>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">수량</label>
@@ -255,7 +328,7 @@ const ProductDetailPage: React.FC = () => {
                   <span className="px-6 py-2 border-x border-gray-300 font-medium">{quantity}</span>
                   <button
                     onClick={() => handleQuantityChange(1)}
-                    disabled={quantity >= 10}
+                    disabled={quantity >= maxQuantity}
                     className="px-4 py-2 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     +
@@ -267,7 +340,7 @@ const ProductDetailPage: React.FC = () => {
             <div className="border-t pt-6">
               <div className="flex justify-between items-center text-xl font-bold">
                 <span>총 상품금액</span>
-                <span>₩{formatPrice(product.price * quantity)}</span>
+                <span>₩{formatPrice(unitPrice * quantity)}</span>
               </div>
             </div>
 

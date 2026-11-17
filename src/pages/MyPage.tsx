@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { MessageSquare } from 'lucide-react'
 import { useCouponContext } from '../context/CouponContext'
 import UserInfoModal from '../components/UserInfoModal'
-import { getUserOrders, migrateLocalOrdersToDatabase, Order, cancelOrder } from '../services/orderService'
+import { getUserOrders, Order, cancelOrder, orderItemOptionText } from '../services/orderService'
 import { useUser, User } from '../context/UserContext'
 import { verifyPasswordForAccess, changePassword } from '../services/userService'
 import { getUserInquiries } from '../services/inquiryService'
@@ -130,17 +130,7 @@ const MyPage: React.FC = () => {
             })
             
             // 데이터베이스에서 사용자 주문 데이터 가져오기
-            let userOrders = await getUserOrders(userId)
-            
-            // 데이터베이스에 주문이 없으면 로컬스토리지에서 마이그레이션 시도
-            if (userOrders.length === 0) {
-                console.log('데이터베이스에 주문이 없어 로컬스토리지에서 마이그레이션을 시도합니다.')
-                const migratedCount = await migrateLocalOrdersToDatabase(currentUser.id || currentUser.email || currentUser.name)
-                if (migratedCount > 0) {
-                    console.log(`${migratedCount}개의 주문이 데이터베이스로 마이그레이션되었습니다.`)
-                    userOrders = await getUserOrders(currentUser.id || currentUser.email || currentUser.name)
-                }
-            }
+            const userOrders = await getUserOrders(userId)
             
             console.log(`📦 마이페이지: ${userOrders.length}개 주문 로드됨`, userOrders.map(o => ({
                 id: o.id,
@@ -278,17 +268,7 @@ const MyPage: React.FC = () => {
 
                 try {
                     // 데이터베이스에서 사용자 주문 데이터 가져오기
-                    let userOrders = await getUserOrders(currentUser.id || currentUser.email || currentUser.name)
-                    
-                    // 데이터베이스에 주문이 없으면 로컬스토리지에서 마이그레이션 시도
-                    if (userOrders.length === 0) {
-                        console.log('데이터베이스에 주문이 없어 로컬스토리지에서 마이그레이션을 시도합니다.')
-                        const migratedCount = await migrateLocalOrdersToDatabase(currentUser.id || currentUser.email || currentUser.name)
-                        if (migratedCount > 0) {
-                            console.log(`${migratedCount}개의 주문이 데이터베이스로 마이그레이션되었습니다.`)
-                            userOrders = await getUserOrders(currentUser.id || currentUser.email || currentUser.name)
-                        }
-                    }
+                    const userOrders = await getUserOrders(currentUser.id || currentUser.email || currentUser.name)
                     
                     setOrders(userOrders)
 
@@ -522,7 +502,8 @@ const MyPage: React.FC = () => {
                 price: item.price,
                 quantity: item.quantity,
                 size: item.size,
-                color: item.color
+                color: item.color,
+                option_text: orderItemOptionText(item)
             }))
         }
         
@@ -858,8 +839,7 @@ const MyPage: React.FC = () => {
                                                     {order.items.map((item, itemIndex) => (
                                                         <div key={itemIndex} className="text-xs text-gray-600 mb-1">
                                                             {item.name} ({item.quantity}개)
-                                                            {item.size && <span className="ml-1">- {item.size}</span>}
-                                                            {item.color && <span className="ml-1">- {item.color}</span>}
+                                                            {orderItemOptionText(item) && <span className="ml-1">- {orderItemOptionText(item)}</span>}
                                                         </div>
                                                     ))}
                                                 </span>
@@ -1393,8 +1373,7 @@ const MyPage: React.FC = () => {
                                                     <h5 className="font-medium text-gray-800">{item.name}</h5>
                                                     <div className="text-sm text-gray-600 space-y-1">
                                                         {item.brand && <div>브랜드: {item.brand}</div>}
-                                                        {item.size && <div>사이즈: {item.size}</div>}
-                                                        {item.color && <div>색상: {item.color}</div>}
+                                                        {orderItemOptionText(item) && <div>옵션: {orderItemOptionText(item)}</div>}
                                                         <div>수량: {item.quantity}개</div>
                                                         <div>가격: {item.price.toLocaleString()}원</div>
                                                     </div>
