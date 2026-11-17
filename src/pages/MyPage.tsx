@@ -779,7 +779,7 @@ const MyPage: React.FC = () => {
                             {/* 주문 상태별 필터링 */}
                             <div className="mb-6">
                                 <div className="flex gap-2 flex-wrap">
-                                    {['전체', '주문접수', '결제완료', '상품준비', '배송중', '배송완료', '주문취소', '반품신청'].map(status => (
+                                    {['전체', '주문접수', '결제완료', '상품준비', '부분배송', '배송중', '배송완료', '주문취소', '반품신청'].map(status => (
                                         <button
                                             key={status}
                                             onClick={() => setSelectedOrderStatus(status)}
@@ -826,6 +826,7 @@ const MyPage: React.FC = () => {
                                                 <span>
                                                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                                                         order.status === '배송완료' ? 'bg-green-100 text-green-800' :
+                                                        order.status === '부분배송' ? 'bg-indigo-100 text-indigo-800' :
                                                         order.status === '배송중' ? 'bg-blue-100 text-blue-800' :
                                                         order.status === '상품준비' ? 'bg-yellow-100 text-yellow-800' :
                                                         order.status === '결제완료' ? 'bg-purple-100 text-purple-800' :
@@ -1377,6 +1378,14 @@ const MyPage: React.FC = () => {
                                                         {orderItemOptionText(item) && <div>옵션: {orderItemOptionText(item)}</div>}
                                                         <div>수량: {item.quantity}개</div>
                                                         <div>가격: {item.price.toLocaleString()}원</div>
+                                                        {/* 상품 줄별 배송 상태·송장 (0009: 브랜드마다 따로 발송) */}
+                                                        {selectedOrder.order_items?.[index] && (
+                                                            <div>
+                                                                배송: {selectedOrder.order_items[index].status}
+                                                                {selectedOrder.order_items[index].tracking_number &&
+                                                                    ` (${selectedOrder.order_items[index].tracking_company ?? ''} ${selectedOrder.order_items[index].tracking_number})`}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>

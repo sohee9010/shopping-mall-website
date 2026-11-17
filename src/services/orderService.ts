@@ -18,22 +18,36 @@ export interface OrderItem {
 export const orderItemOptionText = (item: Pick<OrderItem, 'option_text' | 'size' | 'color'>): string | null =>
   item.option_text ?? ([item.color, item.size].filter(Boolean).join(' / ') || null)
 
+// 주문 상품 줄 (0009 order_items): 줄별 배송 상태·송장. 브랜드가 다르면 따로 발송된다
+export interface OrderLine {
+  id: number
+  brand: string
+  product_name: string
+  option_text: string | null
+  unit_price: number
+  quantity: number
+  status: '배송준비' | '배송중' | '배송완료' | '취소'
+  tracking_company: string | null
+  tracking_number: string | null
+}
+
 export interface Order {
   id?: string
   user_id: string
   order_date: string
   // 결제대기 -> 결제완료(승인) | 결제실패(승인 거절) | 결제취소(결제창에서 취소)
-  status: '결제대기' | '결제실패' | '결제취소' | '주문접수' | '결제완료' | '상품준비' | '배송중' | '배송완료' | '취소요청' | '주문취소' | '반품신청' | '반품완료'
+  status: '결제대기' | '결제실패' | '결제취소' | '주문접수' | '결제완료' | '상품준비' | '부분배송' | '배송중' | '배송완료' | '취소요청' | '주문취소' | '반품신청' | '반품완료'
   total_amount: number
   payment_method: string
   payment_key?: string
   items: OrderItem[]
+  order_items?: OrderLine[] // items와 같은 순서 (id 오름차순)
   shipping_address: string
   recipient_name: string
   recipient_phone: string
   created_at?: string
   updated_at?: string
-  tracking_number?: string
+  tracking_number?: string // 사용 안 함 (0009 이후 송장은 order_items에 줄별로)
   estimated_delivery?: string
   cancel_reason?: string
   return_reason?: string
@@ -109,7 +123,7 @@ export const getUserOrders = async (userId: string): Promise<Order[]> => {
   try {
     const { data, error } = await supabase
       .from('orders')
-      .select('*')
+      .select('*, order_items(*)')
       .eq('user_id', userId)
       .not('status', 'in', '("' + UNPAID_STATUSES.join('","') + '")')
       .order('created_at', { ascending: false })
@@ -119,7 +133,11 @@ export const getUserOrders = async (userId: string): Promise<Order[]> => {
       return []
     }
 
-    return data || []
+    // 상품 줄을 생성 순서(id)로 정렬해 items와 같은 순서로 맞춘다
+    return (data || []).map((order) => ({
+      ...order,
+      order_items: [...(order.order_items ?? [])].sort((a: OrderLine, b: OrderLine) => a.id - b.id),
+    }))
   } catch (error) {
     console.error('주문 조회 중 예외 발생:', error)
     return []
