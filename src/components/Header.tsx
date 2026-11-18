@@ -1,106 +1,217 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { SITE } from '../config/site'
+import React, { useState, useEffect, useRef, useId } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { SITE, FLOORS } from '../config/site'
 import { useCartContext } from '../context/CartContext'
 import { getCategoriesHierarchy } from '../services/categoryService'
 import { useUser } from '../context/UserContext'
 import { getSearchSuggestions, getPopularSearchTerms } from '../services/productService'
 
-const Header: React.FC = () => {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [activeCategory, setActiveCategory] = useState<any>(null)
-  const [categories, setCategories] = useState<any[]>([])
-  const [searchQuery, setSearchQuery] = useState('')
+// 헤더 (D-2 재작성)
+// - 데스크톱: 가운데 로고 + 층(1차 카테고리) 가로 메뉴, 마우스를 올리거나 키보드로 초점이 가면 하위 메뉴 패널
+// - 모바일: 햄버거 → 측면 서랍 메뉴(층별 펼침), 검색은 아이콘을 눌러 연다
+// - 검색창: 테두리 상자 대신 돋보기 + 밑줄 한 줄
+// 이전: 햄버거만 있어 층 구성이 안 보였고, 모바일에서 검색창(w-96)이 화면 폭을 넘었으며,
+//       페이지를 옮길 때마다 카테고리를 다시 불러왔다
+
+interface CategoryNode {
+  id: number
+  name: string
+  subcategories?: CategoryNode[]
+}
+
+interface Floor {
+  label: string
+  category: CategoryNode
+}
+
+// ---------------------------------------------------------------------
+// 아이콘 (선 굵기를 맞춘 간단한 SVG)
+// ---------------------------------------------------------------------
+const Icon = ({ path, className = 'h-5 w-5' }: { path: React.ReactNode; className?: string }) => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" className={`${className} fill-none stroke-current`} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    {path}
+  </svg>
+)
+const SearchIcon = (p: { className?: string }) => <Icon {...p} path={<><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></>} />
+const BagIcon = (p: { className?: string }) => <Icon {...p} path={<><path d="M5 8h14l-1 12H6L5 8Z" /><path d="M9 8V6a3 3 0 0 1 6 0v2" /></>} />
+const UserIcon = (p: { className?: string }) => <Icon {...p} path={<><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></>} />
+const MenuIcon = (p: { className?: string }) => <Icon {...p} path={<><path d="M3 7h18" /><path d="M3 12h18" /><path d="M3 17h18" /></>} />
+const CloseIcon = (p: { className?: string }) => <Icon {...p} path={<><path d="M6 6l12 12" /><path d="M18 6 6 18" /></>} />
+
+// ---------------------------------------------------------------------
+// 검색창: 데스크톱 헤더와 모바일 검색 패널이 함께 쓴다
+// ---------------------------------------------------------------------
+const SearchBox: React.FC<{ autoFocus?: boolean; onDone?: () => void }> = ({ autoFocus, onDone }) => {
+  const navigate = useNavigate()
+  const listId = useId()
+  const [query, setQuery] = useState('')
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [popularTerms, setPopularTerms] = useState<string[]>([])
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false)
+  const [open, setOpen] = useState(false)
+  const boxRef = useRef<HTMLFormElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    getPopularSearchTerms(6).then(setPopularTerms).catch(() => setPopularTerms([]))
+  }, [])
+
+  // 두 글자 이상이면 자동완성 (입력이 멈춘 뒤 200ms 후 한 번만 요청)
+  useEffect(() => {
+    if (query.trim().length < 2) {
+      setSuggestions([])
+      return
+    }
+    const timer = setTimeout(() => {
+      getSearchSuggestions(query.trim(), 6).then(setSuggestions).catch(() => setSuggestions([]))
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [query])
+
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [])
+
+  const go = (term: string) => {
+    const t = term.trim()
+    if (!t) {
+      inputRef.current?.focus() // 이전: 빈 검색어에 alert 창 → 입력칸으로 초점만 이동
+      return
+    }
+    setQuery(t)
+    setOpen(false)
+    navigate(`/search?search=${encodeURIComponent(t)}`)
+    onDone?.()
+  }
+
+  const showPanel = open && (suggestions.length > 0 || popularTerms.length > 0)
+
+  return (
+    <form
+      ref={boxRef}
+      role="search"
+      onSubmit={(e) => { e.preventDefault(); go(query) }}
+      className="relative w-full"
+    >
+      <label className="flex items-center gap-2 border-b border-etage-ink/30 pb-1 transition-colors focus-within:border-etage-ink">
+        <SearchIcon className="h-4 w-4 shrink-0 text-etage-ink" />
+        <span className="sr-only">상품 검색</span>
+        <input
+          ref={inputRef}
+          type="search"
+          value={query}
+          autoFocus={autoFocus}
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => setOpen(true)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false) }}
+          placeholder="캐시미어, 로퍼, 향수"
+          aria-controls={showPanel ? listId : undefined}
+          className="w-full bg-transparent py-1 text-sm text-etage-ink outline-none placeholder:text-etage-muted"
+        />
+      </label>
+
+      {showPanel && (
+        <div id={listId} className="absolute left-0 right-0 top-full z-50 mt-3 border border-etage-line bg-etage-paper p-5 shadow-xl">
+          {suggestions.length > 0 && (
+            <div className="mb-4">
+              <p className="mb-2 text-[11px] uppercase tracking-label text-etage-muted">추천 검색어</p>
+              <ul>
+                {suggestions.map((s) => (
+                  <li key={s}>
+                    <button type="button" onClick={() => go(s)} className="block w-full py-1.5 text-left text-sm text-etage-ink hover:underline">
+                      {s}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {popularTerms.length > 0 && (
+            <div>
+              <p className="mb-2 text-[11px] uppercase tracking-label text-etage-muted">인기 검색어</p>
+              <div className="flex flex-wrap gap-2">
+                {popularTerms.map((t, i) => (
+                  <button key={t} type="button" onClick={() => go(t)} className="border border-etage-line px-3 py-1 text-xs text-etage-ink hover:border-etage-ink">
+                    <span className="mr-1 text-etage-muted">{i + 1}</span>{t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </form>
+  )
+}
+
+// ---------------------------------------------------------------------
+// 헤더
+// ---------------------------------------------------------------------
+const Header: React.FC = () => {
+  const [floors, setFloors] = useState<Floor[]>([])
+  const [openFloorId, setOpenFloorId] = useState<number | null>(null)   // 데스크톱 하위 메뉴
+  const [drawerOpen, setDrawerOpen] = useState(false)                     // 모바일 서랍
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
+  const [expandedFloorId, setExpandedFloorId] = useState<number | null>(null) // 모바일 서랍의 펼친 층
+  const closeTimer = useRef<ReturnType<typeof setTimeout>>()
+  const drawerCloseRef = useRef<HTMLButtonElement>(null)
 
   const { getCartItemCount, syncCartOnLogout } = useCartContext()
+  const { currentUser, logout } = useUser()
   const location = useLocation()
   const navigate = useNavigate()
-  const { currentUser, logout: logoutFromContext } = useUser()
-  const searchInputRef = useRef<HTMLInputElement>(null)
-  const suggestionsRef = useRef<HTMLDivElement>(null)
 
-  // 상단 헤더를 숨길 페이지들
-  const hideTopHeaderPages = ['/login', '/signup', '/forgot-password']
-  const shouldHideTopHeader = hideTopHeaderPages.includes(location.pathname)
-
-  // 카테고리 로드
+  // 카테고리는 한 번만 불러온다 (이전: 페이지를 옮길 때마다 다시 조회)
   useEffect(() => {
-    // 카테고리 데이터 로드
-    const loadCategories = async () => {
-      const categoryData = await getCategoriesHierarchy()
-      setCategories(categoryData)
-      if (categoryData.length > 0) {
-        setActiveCategory(categoryData[0]) // 첫 번째 카테고리를 기본값으로
-      }
-    }
-    loadCategories()
-  }, [location.pathname])
-
-  // 인기 검색어 로드
-  useEffect(() => {
-    loadPopularTerms()
+    getCategoriesHierarchy().then((all: CategoryNode[]) => {
+      setFloors(
+        FLOORS.flatMap((f) => {
+          const category = all.find((c) => c.name === f.categoryName)
+          return category ? [{ label: f.label, category }] : []
+        }),
+      )
+    })
   }, [])
 
-  // 자동완성 제안 로드
+  // 페이지를 옮기면 열린 메뉴·서랍·검색을 닫는다
   useEffect(() => {
-    if (searchQuery.length >= 2) {
-      loadSuggestions()
-    } else {
-      setSuggestions([])
-    }
-  }, [searchQuery])
+    setOpenFloorId(null)
+    setDrawerOpen(false)
+    setMobileSearchOpen(false)
+  }, [location.pathname, location.search])
 
-  // 외부 클릭 시 제안 숨기기
+  // 서랍이 열려 있는 동안 뒤 페이지 스크롤 잠금 + Esc로 닫기 + 닫기 버튼으로 초점 이동
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
-        setShowSuggestions(false)
-      }
+    if (!drawerOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    drawerCloseRef.current?.focus()
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setDrawerOpen(false) }
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = prev
+      document.removeEventListener('keydown', onKey)
     }
+  }, [drawerOpen])
 
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  const loadPopularTerms = async () => {
-    try {
-      const terms = await getPopularSearchTerms(6)
-      setPopularTerms(terms)
-    } catch (error) {
-      console.error('인기 검색어 로드 실패:', error)
-    }
+  // 하위 메뉴는 마우스가 메뉴와 패널 사이를 지나가는 동안 바로 닫히지 않도록 잠깐 기다린다
+  const openFloor = (id: number) => {
+    clearTimeout(closeTimer.current)
+    setOpenFloorId(id)
+  }
+  const scheduleClose = () => {
+    clearTimeout(closeTimer.current)
+    closeTimer.current = setTimeout(() => setOpenFloorId(null), 120)
   }
 
-  const loadSuggestions = async () => {
-    if (searchQuery.length < 2) return
-
-    setIsLoadingSuggestions(true)
-    try {
-      const suggestions = await getSearchSuggestions(searchQuery, 6)
-      setSuggestions(suggestions)
-    } catch (error) {
-      console.error('검색 제안 로드 실패:', error)
-    } finally {
-      setIsLoadingSuggestions(false)
-    }
-  }
-
-  // 로그아웃 함수
   const handleLogout = async () => {
     try {
-      // 장바구니 동기화 (회원 → 비회원 전환)
       await syncCartOnLogout()
-
-      // UserContext의 logout 함수 사용
-      await logoutFromContext()
-
+      await logout()
       alert('로그아웃되었습니다.')
-
-      // 홈페이지로 완전한 새로고침과 함께 이동
       navigate('/')
     } catch (error) {
       console.error('Logout error:', error)
@@ -108,267 +219,213 @@ const Header: React.FC = () => {
     }
   }
 
-  const toggleDropdown = () => {
-    setIsDropdownOpen(!isDropdownOpen)
-  }
-
-  // 외부 클릭 시 드롭다운 닫기
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element
-      if (!target.closest('.hamburger-container')) {
-        setIsDropdownOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [])
-
-  const handleMouseEnter = () => {
-    if (!shouldHideTopHeader) {
-      setIsDropdownOpen(true)
-    }
-  }
-
-  const handleMouseLeave = () => {
-    if (!shouldHideTopHeader) {
-      setIsDropdownOpen(false)
-    }
-  }
-
-  const handleCategoryHover = (category: any) => {
-    setActiveCategory(category)
-  }
-
-  // 검색 기능
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (searchQuery.trim()) {
-      // 검색어가 있으면 검색 페이지로 이동
-      console.log('검색 실행:', searchQuery.trim())
-      navigate(`/search?search=${encodeURIComponent(searchQuery.trim())}`)
-    } else {
-      alert('검색어를 입력해주세요.')
-    }
-  }
-
-  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value)
-  }
-
-  const handleSearchButtonClick = () => {
-    if (searchQuery.trim()) {
-      console.log('검색 버튼 클릭:', searchQuery.trim())
-      navigate(`/search?search=${encodeURIComponent(searchQuery.trim())}`)
-    } else {
-      alert('검색어를 입력해주세요.')
-    }
-  }
-
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      handleSearchButtonClick()
-    }
-  }
-
-  const handleSuggestionClick = (suggestion: string) => {
-    setSearchQuery(suggestion)
-    navigate(`/search?search=${encodeURIComponent(suggestion)}`)
-    setShowSuggestions(false)
-  }
-
-  const handlePopularTermClick = (term: string) => {
-    setSearchQuery(term)
-    navigate(`/search?search=${encodeURIComponent(term)}`)
-    setShowSuggestions(false)
-  }
-
-  const handleSearchFocus = () => {
-    setShowSuggestions(true)
-  }
+  const cartCount = getCartItemCount()
+  const openFloorData = floors.find((f) => f.category.id === openFloorId)
 
   return (
-    <>
-      {/* Header */}
-      <header className="w-full bg-white border-b border-gray-200 sticky top-0 z-50">
-        {/* 상단 헤더: 로고 + 햄버거 + 검색창 + 우측 메뉴 */}
-        {!shouldHideTopHeader && (
-          <div className="border-b border-gray-100 py-3">
-            <div className="flex items-center justify-between max-w-7xl mx-auto px-6">
-              <Link to="/" className="text-2xl font-bold text-black no-underline tracking-tight">{SITE.name}</Link>
-              <div className="flex items-center gap-4">
-                {/* 햄버거 버튼 */}
-                <div
-                  className="relative inline-block hamburger-container"
-                  onMouseEnter={handleMouseEnter}
-                  onMouseLeave={handleMouseLeave}
-                >
-                  <button
-                    className={`flex flex-col justify-around w-6 h-[18px] bg-transparent border-none cursor-pointer p-0 z-10 group ${isDropdownOpen ? 'active' : ''}`}
-                    onClick={toggleDropdown}
-                  >
-                    <span className={`block h-0.5 w-full bg-gray-800 rounded-sm transition-all duration-300 group-hover:bg-black ${isDropdownOpen ? 'transform rotate-45 translate-x-1 translate-y-1' : ''}`}></span>
-                    <span className={`block h-0.5 w-full bg-gray-800 rounded-sm transition-all duration-300 group-hover:bg-black ${isDropdownOpen ? 'opacity-0' : ''}`}></span>
-                    <span className={`block h-0.5 w-full bg-gray-800 rounded-sm transition-all duration-300 group-hover:bg-black ${isDropdownOpen ? 'transform -rotate-45 translate-x-1.5 -translate-y-1.5' : ''}`}></span>
-                  </button>
-                  {/* 카테고리 드롭다운 메뉴 */}
-                  <div className={`absolute top-full left-0 bg-white border border-gray-200 shadow-xl z-50 w-[700px] mt-2 transition-all duration-200 ${isDropdownOpen ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible -translate-y-2.5'}`}>
-                    <div className="grid grid-cols-7 gap-0 p-3" style={{ gridTemplateColumns: '100px repeat(6, 1fr)' }}>
-                      <div className="px-2 border-r border-gray-100 pr-3">
-                        {categories.map((category) => (
-                          <div
-                            key={category.id}
-                            className="mb-2"
-                            onMouseEnter={() => handleCategoryHover(category)}
-                          >
-                            <Link
-                              to={`/category/${category.id}`}
-                              className={`text-sm font-semibold text-gray-800 m-0 mb-1 py-1.5 cursor-pointer transition-colors duration-200 hover:text-black no-underline block ${activeCategory?.id === category.id ? 'text-black bg-gray-50 py-1.5 px-2 rounded-sm -mx-2 mb-1 font-bold' : ''}`}
-                            >
-                              {category.name}
-                            </Link>
-                          </div>
-                        ))}
-                      </div>
-                      {/* 카테고리 레벨2 (서브카테고리들) */}
-                      {activeCategory && activeCategory.subcategories && activeCategory.subcategories.length > 0 ? (
-                        activeCategory.subcategories.map((subcategory: any, index: number) => (
-                          <div key={index} className="px-2">
-                            <div className="mb-2">
-                              <Link
-                                to={`/category/${subcategory.id}`}
-                                className="text-xs font-semibold text-gray-500 m-0 mb-1.5 pb-1 border-b border-gray-100 no-underline block hover:text-gray-700 transition-colors duration-200"
-                              >
-                                {subcategory.name}
-                              </Link>
-                              {/* 레벨3 카테고리 (상품 링크) */}
-                              {subcategory.subcategories && subcategory.subcategories.length > 0 ? (
-                                subcategory.subcategories.map((subsubcategory: any, index: number) => (
-                                  <Link
-                                    key={index}
-                                    to={`/category/${subsubcategory.id}`}
-                                    className="block py-1 text-gray-500 no-underline text-xs transition-colors duration-200 hover:text-black"
-                                  >
-                                    {subsubcategory.name}
-                                  </Link>
-                                ))
-                              ) : (
-                                // 레벨3 카테고리가 없을 때 표시할 메시지
-                                <div className="col-span-6 flex items-center justify-center text-gray-400 text-sm">
-                                  서브카테고리를 선택해주세요
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        // 서브카테고리가 없을 때 표시할 메시지
-                        <div className="col-span-6 flex items-center justify-center text-gray-400 text-sm">
-                          카테고리를 선택해주세요
-                        </div>
-                      )}
-                    </div>
-                  </div>
+    // backdrop-blur 같은 필터를 헤더에 주면 안쪽 fixed 요소(모바일 서랍)의 기준이 화면이 아니라 헤더가 되어
+    // 서랍이 헤더 높이만큼만 그려진다 → 불투명 배경 사용
+    <header className="sticky top-0 z-50 w-full border-b border-etage-line bg-etage-paper" onMouseLeave={scheduleClose}>
+      {/* 1줄: (모바일 메뉴 | 데스크톱 검색) · 로고 · 계정·장바구니 */}
+      <div className="mx-auto grid h-14 max-w-[1440px] grid-cols-[1fr_auto_1fr] items-center px-4 lg:h-[72px] lg:px-10">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            aria-label="메뉴 열기"
+            aria-expanded={drawerOpen}
+            aria-controls="mobile-drawer"
+            className="-ml-2 p-2 text-etage-ink lg:hidden"
+          >
+            <MenuIcon />
+          </button>
+          <div className="hidden w-64 lg:block">
+            <SearchBox />
+          </div>
+        </div>
+
+        <Link to="/" className="font-display text-[26px] font-semibold leading-none tracking-[0.08em] text-etage-ink lg:text-[34px]" aria-label={`${SITE.name} 홈`}>
+          {SITE.name}
+        </Link>
+
+        <div className="flex items-center justify-end gap-1 lg:gap-5">
+          <button
+            type="button"
+            onClick={() => setMobileSearchOpen((v) => !v)}
+            aria-label="검색 열기"
+            aria-expanded={mobileSearchOpen}
+            className="p-2 text-etage-ink lg:hidden"
+          >
+            <SearchIcon />
+          </button>
+          {currentUser ? (
+            <>
+              <Link to="/mypage" className="flex items-center gap-1.5 p-2 text-etage-ink lg:p-0" aria-label="마이페이지">
+                <UserIcon />
+                <span className="hidden text-xs lg:inline">{currentUser.name}님</span>
+              </Link>
+              <button type="button" onClick={handleLogout} className="hidden text-xs text-etage-muted hover:text-etage-ink lg:inline">
+                로그아웃
+              </button>
+            </>
+          ) : (
+            <Link to="/login" className="flex items-center gap-1.5 p-2 text-etage-ink lg:p-0" aria-label="로그인">
+              <UserIcon />
+              <span className="hidden text-xs lg:inline">로그인</span>
+            </Link>
+          )}
+          <Link to="/cart" className="relative -mr-2 p-2 text-etage-ink lg:mr-0 lg:p-0" aria-label={`장바구니 ${cartCount}개`}>
+            <BagIcon />
+            {cartCount > 0 && (
+              <span className="absolute right-0 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-etage-ink px-1 text-[10px] font-medium text-etage-paper lg:-right-2 lg:-top-1.5">
+                {cartCount}
+              </span>
+            )}
+          </Link>
+        </div>
+      </div>
+
+      {/* 2줄(데스크톱): 층 가로 메뉴 */}
+      <nav aria-label="쇼핑 카테고리" className="hidden lg:block">
+        <ul className="flex h-11 items-center justify-center gap-12">
+          {floors.map((f) => (
+            <li key={f.category.id} onMouseEnter={() => openFloor(f.category.id)}>
+              <Link
+                to={`/category/${f.category.id}`}
+                onFocus={() => openFloor(f.category.id)}
+                aria-expanded={openFloorId === f.category.id}
+                className={`relative py-3 text-[13px] font-medium tracking-nav text-etage-ink after:absolute after:inset-x-0 after:-bottom-px after:h-px after:origin-left after:bg-etage-ink after:transition-transform after:duration-300 ${
+                  openFloorId === f.category.id ? 'after:scale-x-100' : 'after:scale-x-0 hover:after:scale-x-100'
+                }`}
+              >
+                {f.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      {/* 데스크톱 하위 메뉴 패널: 헤더 아래 전체 폭 */}
+      {openFloorData && (
+        <div
+          className="absolute inset-x-0 top-full hidden border-b border-etage-line bg-etage-paper shadow-[0_12px_24px_-12px_rgba(0,0,0,0.15)] lg:block"
+          onMouseEnter={() => openFloor(openFloorData.category.id)}
+          onMouseLeave={scheduleClose}
+        >
+          <div className="mx-auto grid max-w-[1200px] grid-cols-[180px_1fr] gap-10 px-10 py-10">
+            <div>
+              <p className="font-display text-3xl text-etage-ink">{openFloorData.label}</p>
+              <Link to={`/category/${openFloorData.category.id}`} className="mt-4 inline-block border-b border-etage-ink pb-0.5 text-xs tracking-label text-etage-ink">
+                {openFloorData.category.name} 전체 보기
+              </Link>
+            </div>
+            <div className="grid grid-cols-4 gap-8">
+              {(openFloorData.category.subcategories ?? []).map((sub) => (
+                <div key={sub.id}>
+                  <Link to={`/category/${sub.id}`} className="text-sm font-semibold text-etage-ink hover:underline">
+                    {sub.name}
+                  </Link>
+                  <ul className="mt-3 space-y-2">
+                    {(sub.subcategories ?? []).map((leaf) => (
+                      <li key={leaf.id}>
+                        <Link to={`/category/${leaf.id}`} className="text-sm text-etage-muted hover:text-etage-ink">
+                          {leaf.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                {/* 검색창 */}
-                <form onSubmit={handleSearch} className="relative flex items-center">
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    value={searchQuery}
-                    onChange={handleSearchInputChange}
-                    onKeyPress={handleKeyPress}
-                    onFocus={handleSearchFocus}
-                    className="py-2.5 px-5 pr-12 border border-gray-200 rounded-full outline-none text-sm w-96 transition-all duration-300 bg-gray-50 focus:border-black focus:bg-white focus:shadow-lg"
-                    placeholder="검색어를 입력하세요 (예: 캐시미어, 로퍼, 향수)"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleSearchButtonClick}
-                    className="absolute right-4 bg-transparent border-none cursor-pointer text-gray-500 p-1 flex items-center justify-center hover:text-black transition-colors duration-200"
-                    title="검색"
-                  >
-                    <svg viewBox="0 0 24 24" className="w-5 h-5 stroke-current fill-none stroke-2">
-                      <circle cx="11" cy="11" r="8"></circle>
-                      <path d="m21 21-4.35-4.35"></path>
-                    </svg>
-                  </button>
-
-                  {/* 검색 제안 */}
-                  {showSuggestions && (suggestions.length > 0 || popularTerms.length > 0 || isLoadingSuggestions) && (
-                    <div
-                      ref={suggestionsRef}
-                      className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-2 z-50 max-h-96 overflow-y-auto"
-                    >
-                      {/* 로딩 상태 */}
-                      {isLoadingSuggestions && (
-                        <div className="p-4 text-center">
-                          <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                          <span className="ml-2 text-sm text-gray-600">검색 중...</span>
-                        </div>
-                      )}
-
-                      {/* 검색 제안 */}
-                      {!isLoadingSuggestions && suggestions.length > 0 && (
-                        <div className="p-4 border-b border-gray-100">
-                          <h3 className="text-sm font-semibold text-gray-700 mb-2">검색 제안</h3>
-                          {suggestions.map((suggestion, index) => (
-                            <button
-                              key={index}
-                              onClick={() => handleSuggestionClick(suggestion)}
-                              className="block w-full text-left px-3 py-2 text-gray-800 hover:bg-gray-100 rounded transition-colors"
-                            >
-                              {suggestion}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* 인기 검색어 */}
-                      {!isLoadingSuggestions && popularTerms.length > 0 && (
-                        <div className="p-4">
-                          <h3 className="text-sm font-semibold text-gray-700 mb-2">인기 검색어</h3>
-                          <div className="flex flex-wrap gap-2">
-                            {popularTerms.map((term, index) => (
-                              <button
-                                key={index}
-                                onClick={() => handlePopularTermClick(term)}
-                                className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200 transition-colors"
-                              >
-                                {term}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </form>
-              </div>
-              <div className="flex gap-5 items-center">
-                {currentUser ? (
-                  <>
-                    <span className="text-gray-800 text-sm font-semibold">{currentUser.name}님</span>
-                    <button onClick={handleLogout} className="bg-transparent border-none text-gray-500 text-sm cursor-pointer transition-colors duration-300 p-0 hover:text-black">로그아웃</button>
-                  </>
-                ) : (
-                  <Link to="/login" className="text-gray-500 no-underline text-sm transition-colors duration-300 hover:text-black">로그인/회원가입</Link>
-                )}
-                <Link to="/cart" className="relative text-gray-500 no-underline text-sm transition-colors duration-300 hover:text-black">
-                  장바구니 ({getCartItemCount()})
-                </Link>
-                {currentUser && <Link to="/mypage" className="text-gray-500 no-underline text-sm transition-colors duration-300 hover:text-black">마이페이지</Link>}
-              </div>
+              ))}
             </div>
           </div>
-        )}
+        </div>
+      )}
 
+      {/* 모바일 검색 패널 */}
+      {mobileSearchOpen && (
+        <div className="border-t border-etage-line px-4 py-4 lg:hidden">
+          <SearchBox autoFocus onDone={() => setMobileSearchOpen(false)} />
+        </div>
+      )}
 
-      </header>
-    </>
+      {/* 모바일 서랍 메뉴 */}
+      <div
+        id="mobile-drawer"
+        className={`fixed inset-0 z-[60] lg:hidden ${drawerOpen ? 'visible' : 'invisible'}`}
+        aria-hidden={!drawerOpen}
+      >
+        <div
+          className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${drawerOpen ? 'opacity-100' : 'opacity-0'}`}
+          onClick={() => setDrawerOpen(false)}
+        />
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="메뉴"
+          className={`absolute inset-y-0 left-0 flex w-[86%] max-w-sm flex-col bg-etage-paper transition-transform duration-300 ease-out ${
+            drawerOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          <div className="flex h-14 items-center justify-between border-b border-etage-line px-4">
+            <span className="font-display text-2xl font-semibold tracking-[0.08em]">{SITE.name}</span>
+            <button ref={drawerCloseRef} type="button" onClick={() => setDrawerOpen(false)} aria-label="메뉴 닫기" className="-mr-2 p-2">
+              <CloseIcon />
+            </button>
+          </div>
+          <nav aria-label="쇼핑 카테고리(모바일)" className="flex-1 overflow-y-auto px-4">
+            <ul>
+              {floors.map((f) => {
+                const expanded = expandedFloorId === f.category.id
+                return (
+                  <li key={f.category.id} className="border-b border-etage-line">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedFloorId(expanded ? null : f.category.id)}
+                      aria-expanded={expanded}
+                      className="flex w-full items-center justify-between py-4 text-sm font-medium tracking-nav text-etage-ink"
+                    >
+                      {f.label}
+                      <span aria-hidden="true" className={`text-lg transition-transform ${expanded ? 'rotate-45' : ''}`}>+</span>
+                    </button>
+                    {expanded && (
+                      <ul className="pb-4">
+                        <li>
+                          <Link to={`/category/${f.category.id}`} className="block py-2 text-sm font-semibold text-etage-ink">
+                            {f.category.name} 전체
+                          </Link>
+                        </li>
+                        {(f.category.subcategories ?? []).map((sub) => (
+                          <li key={sub.id}>
+                            <Link to={`/category/${sub.id}`} className="block py-2 text-sm text-etage-muted">
+                              {sub.name}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+            <ul className="mt-6 space-y-3 pb-8 text-sm text-etage-muted">
+              {currentUser ? (
+                <>
+                  <li><Link to="/mypage">마이페이지</Link></li>
+                  <li><Link to="/order-tracking">주문·배송 조회</Link></li>
+                  <li><Link to="/wishlist">찜</Link></li>
+                  <li><button type="button" onClick={handleLogout}>로그아웃</button></li>
+                </>
+              ) : (
+                <>
+                  <li><Link to="/login">로그인</Link></li>
+                  <li><Link to="/signup">회원가입</Link></li>
+                </>
+              )}
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </header>
   )
 }
 
