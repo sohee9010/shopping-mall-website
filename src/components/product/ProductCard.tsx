@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { formatKRW } from '../../utils/format'
 import { useWishlistContext } from '../../context/WishlistContext'
+import QuickViewModal from './QuickViewModal'
 
 // 쇼핑몰의 모든 상품 목록(홈·카테고리·검색·찜·최근 본 상품)이 쓰는 단일 상품 카드.
 // 이전에는 6곳이 카드를 각자 구현해 모양·동작이 제각각이었다
@@ -58,6 +59,7 @@ const HeartButton: React.FC<{ product: ProductCardData }> = ({ product }) => {
 
 const ProductCard: React.FC<ProductCardProps> = ({ product, cornerAction, eager = false }) => {
   const [imageFailed, setImageFailed] = useState(false)
+  const [quickViewOpen, setQuickViewOpen] = useState(false)
   const showImage = !!product.image && !imageFailed
 
   return (
@@ -92,6 +94,30 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, cornerAction, eager 
           <p className="mt-1.5 text-sm font-semibold text-etage-ink">{formatKRW(product.price)}</p>
         </div>
       </Link>
+      {/* Quick View: 링크 안에 버튼을 넣을 수 없어 이미지 위에 같은 크기의 겹침 층을 두고 그 안에 둔다 */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 aspect-product overflow-hidden">
+        {/* 데스크톱: 마우스를 올리거나 키보드 초점이 오면 이미지 아래에서 올라오는 띠 */}
+        <button
+          type="button"
+          onClick={() => setQuickViewOpen(true)}
+          aria-label={`${product.name} 빠른 보기`}
+          className="pointer-events-auto absolute inset-x-0 bottom-0 hidden translate-y-full bg-etage-paper/95 py-3 text-[11px] font-medium uppercase tracking-nav text-etage-ink transition-transform duration-300 group-hover:translate-y-0 focus-visible:translate-y-0 lg:block"
+        >
+          Quick View
+        </button>
+        {/* 모바일: 마우스 올리기가 없으므로 항상 보이는 작은 버튼 */}
+        <button
+          type="button"
+          onClick={() => setQuickViewOpen(true)}
+          aria-label={`${product.name} 빠른 보기`}
+          className="pointer-events-auto absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-etage-paper/90 text-etage-ink lg:hidden"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="h-[18px] w-[18px] fill-none stroke-current" strokeWidth={1.5}>
+            <path d="M5 8h14l-1 12H6L5 8Z" /><path d="M9 8V6a3 3 0 0 1 6 0v2" />
+          </svg>
+        </button>
+      </div>
+      {quickViewOpen && <QuickViewModal productId={product.id} onClose={() => setQuickViewOpen(false)} />}
       <HeartButton product={product} />
       {cornerAction && (
         <button
