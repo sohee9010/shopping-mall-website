@@ -15,12 +15,13 @@ interface FloorLookbookProps {
   tag: string
   title: string
   brandName: string
+  brandId: number
   summary: string
   image: string
   reverse?: boolean
 }
 
-const FloorLookbook: React.FC<FloorLookbookProps> = ({ floorId, tag, title, brandName, summary, image, reverse }) => {
+const FloorLookbook: React.FC<FloorLookbookProps> = ({ floorId, tag, title, brandName, brandId, summary, image, reverse }) => {
   const [products, setProducts] = useState<Product[] | null>(null)
   const swatches = useSwatches((products ?? []).map((p) => p.id)) // 이 층 상품 4개의 색상 칩을 한 번에
   const imageRef = useParallax<HTMLImageElement>()
@@ -40,7 +41,7 @@ const FloorLookbook: React.FC<FloorLookbookProps> = ({ floorId, tag, title, bran
         {/* D-3: 화보는 스크롤보다 조금 느리게 움직인다(시차). 가장자리가 비지 않게 이미지를 1.12배로 키워 둔다 */}
         <Reveal className={`lg:col-span-5 ${reverse ? 'lg:order-2' : ''}`}>
           <Link
-            to={`/search?search=${encodeURIComponent(brandName)}`}
+            to={`/brand/${brandId}`} // 화보 → 입점 브랜드 페이지 (이전: 브랜드명 검색 결과)
             className="group relative block h-full overflow-hidden bg-etage-canvas"
           >
             <div className="aspect-[3/4] overflow-hidden lg:aspect-auto lg:h-full">

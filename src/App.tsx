@@ -33,6 +33,7 @@ import InquiryPage from './pages/InquiryPage'
 import InquiryHistoryPage from './pages/InquiryHistoryPage'
 import InquiryDetailPage from './pages/InquiryDetailPage'
 import RecentViewPage from './pages/RecentViewPage'
+import BrandPage from './pages/BrandPage'
 
 import { UserProvider } from './context/UserContext'
 
@@ -133,6 +134,7 @@ const AppContent: React.FC = () => {
             <Route path="/category/:category" element={<CategoryPage />} />
             <Route path="/products/:categoryId" element={<CategoryPage />} />
             <Route path="/product/:id" element={<ProductDetailPage />} />
+            <Route path="/brand/:id" element={<BrandPage />} />
             <Route path="/cart" element={<CartPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/payment/success" element={<PaymentSuccessPage />} />

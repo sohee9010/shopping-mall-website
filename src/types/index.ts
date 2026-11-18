@@ -4,6 +4,7 @@ export interface Product {
   description: string
   price: number
   brand?: string
+  brand_id?: number // 입점 브랜드 번호 (0010, 브랜드 페이지 링크)
   image_urls?: string[]
   image: string
   category_id: number
