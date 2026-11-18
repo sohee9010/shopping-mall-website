@@ -99,23 +99,13 @@ const Login = () => {
           <p>실제 등록된 계정으로 로그인하세요</p>
           <div className="signup-links">
             <div className="signup-section">
-              <h3>본사 관리자</h3>
-              <p>본사 관리자 계정이 필요하신가요?</p>
-              <button 
-                className="link-button hq-button"
-                onClick={() => navigate('/admin/hq-register')}
-              >
-                본사 관리자 등록
-              </button>
-            </div>
-            <div className="signup-section">
-              <h3>가맹점</h3>
-              <p>가맹점 계정이 필요하신가요?</p>
+              <h3>입점사</h3>
+              <p>입점 신청이 필요하신가요?</p>
               <button 
                 className="link-button merchant-button"
                 onClick={() => navigate('/admin/merchant-register')}
               >
-                가맹점 등록
+                입점 신청
               </button>
             </div>
           </div>

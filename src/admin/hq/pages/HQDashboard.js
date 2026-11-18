@@ -248,9 +248,6 @@ const HQDashboard = () => {
       case 'customer-service':
         navigate('/admin/customer-service');
         break;
-      case 'statistics':
-        navigate('/admin/statistics');
-        break;
       default:
         break;
     }
@@ -489,14 +486,6 @@ const HQDashboard = () => {
           >
             <MessageSquare size={16} />
             고객 서비스
-          </button>
-          <button 
-            className="btn" 
-            style={{ background: '#6f42c1', color: 'white' }}
-            onClick={() => handleQuickAction('statistics')}
-          >
-            <TrendingUp size={16} />
-            통계 분석
           </button>
         </div>
       </div>

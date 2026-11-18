@@ -1,292 +1,119 @@
-// @ts-nocheck -- TODO(고도화 2-5단계): 관리자 화면 재작성 시 제거. 재작성 전까지 타입 검사에서 임시 제외
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { 
-  Home, 
-  Building2, 
-  Package, 
-  ShoppingCart, 
-  BarChart3, 
-  Settings,
-  Bell,
-  User,
-  LogOut,
-  ChevronDown,
-  Shield,
-  MessageSquare,
-  DollarSign
-} from 'lucide-react';
-import { LayoutProps, MenuItem } from '../../types';
+import { useState, type ReactNode } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Bell, ChevronDown, LogOut, User } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+import { SITE } from '../../../config/site'
+import { adminPath, type AdminPage } from '../../navigation'
 
-const Layout = ({ children, userRole }: LayoutProps) => {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { user, signOut, roleInfo } = useAuth();
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const [brandName, setBrandName] = useState('');
-  const [unreadNoticesCount, setUnreadNoticesCount] = useState(0);
+interface LayoutProps {
+  children: ReactNode
+  /** 이 역할이 볼 수 있는 화면 목록 (navigation.tsx). 메뉴·헤더 제목을 여기서 만든다 */
+  pages: AdminPage[]
+}
 
-  // 더미 브랜드 데이터 설정
-  useEffect(() => {
-    setBrandName(roleInfo?.brandName || user?.user_metadata?.name || '본사 관리자'); // 표시용 이름
-  }, [user?.user_metadata?.name, roleInfo?.brandName]);
+// 원본 대비 바꾼 점
+// - 메뉴를 navigation.tsx 목록에서 생성 ('정산 관리(미구현)'·'시스템 설정(…미구현)' 같은 메뉴 제거)
+// - 알림 배지 숫자는 하드코딩한 샘플 4건을 30초마다 다시 세던 가짜 값이라 제거
+// - 사이드바 제목 'The Hyundai'(실존 기업) → 사이트 이름
+const Layout = ({ children, pages }: LayoutProps) => {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { user, signOut, roleInfo } = useAuth()
+  const [showUserMenu, setShowUserMenu] = useState(false)
 
-  // 읽지 않은 알림 개수 가져오기
-  useEffect(() => {
-    const getUnreadNoticesCount = () => {
-      // 실제 구현에서는 API 호출로 대체
-      // 현재는 Notice.js와 동일한 샘플 데이터를 기반으로 계산
-      const sampleNotices = [
-        { id: 1, isRead: false },
-        { id: 2, isRead: false },
-        { id: 3, isRead: false },
-        { id: 5, isRead: false }
-      ];
-      
-      const unreadCount = sampleNotices.filter(notice => !notice.isRead).length;
-      setUnreadNoticesCount(unreadCount);
-    };
+  const isHQ = roleInfo?.role === 'hq'
+  const displayName = roleInfo?.brandName || user?.user_metadata?.name || (isHQ ? '본사 관리자' : '입점사')
+  const menu = pages.filter((p) => p.icon)
+  const current = pages.find((p) => adminPath(p) === location.pathname.replace(/\/$/, ''))
 
-    getUnreadNoticesCount();
-    
-    // 30초마다 알림 개수 업데이트
-    const interval = setInterval(getUnreadNoticesCount, 30000);
-    
-    return () => clearInterval(interval);
-  }, []);
-
-  // Role에 따른 메뉴 항목 정의
-  const getMenuItems = () => {
-    const commonItems = [
-      { path: '/admin', icon: Home, label: '대시보드' },
-      { path: '/admin/orders', icon: ShoppingCart, label: '주문 관리' },
-      { path: '/admin/settlements', icon: DollarSign, label: '정산 관리(미구현)' },
-      { path: '/admin/statistics', icon: BarChart3, label: '통계 분석' },
-      { path: '/admin/settings', icon: Settings, label: '시스템 설정(카테고리 설정 외 미구현)' },
-    ];
-
-    if (userRole === 'admin' || userRole === 'hq') {
-      // HQ 전용 메뉴
-      return [
-        ...commonItems.slice(0, 1), // 대시보드
-        { path: '/admin/tenants', icon: Building2, label: '입점사 관리' },
-        { path: '/admin/product-management', icon: Package, label: '상품 관리' },
-        { path: '/admin/customer-service', icon: MessageSquare, label: '고객 서비스' },
-        ...commonItems.slice(1), // 나머지 공통 메뉴
-      ];
-    } else {
-      // Merchant 전용 메뉴
-      return [
-        ...commonItems.slice(0, 1), // 대시보드
-        { path: '/admin/products', icon: Package, label: '상품 관리' },
-        { path: '/admin/customers', icon: Building2, label: '고객 관리' },
-        { path: '/admin/customer-service', icon: MessageSquare, label: '고객 서비스' },
-        ...commonItems.slice(1), // 나머지 공통 메뉴
-      ];
-    }
-  };
-
-  const menuItems = getMenuItems();
-
-  // Role에 따른 제목 설정
-  const getSystemTitle = () => {
-    if (userRole === 'admin' || userRole === 'hq') {
-      return '본사 관리 시스템';
-    } else {
-      return '가맹점 관리 시스템';
-    }
-  };
-
-  // 로그아웃 처리
   const handleLogout = async () => {
-    const result = await signOut();
-    if (result.success) {
-      navigate('/admin/login');
-    }
-  };
-
-  // 본사 여부는 DB 역할 기준
-  const isAdmin = () => roleInfo?.role === 'hq';
+    const result = await signOut()
+    if (result.success) navigate('/admin/login')
+  }
 
   return (
     <div className="layout">
-      {/* Sidebar */}
       <div className="sidebar">
         <div className="sidebar-header">
-          <h1 className="sidebar-title">The Hyundai</h1>
+          <h1 className="sidebar-title">{SITE.name}</h1>
           <p style={{ fontSize: '0.875rem', opacity: 0.8, marginTop: '0.5rem' }}>
-            {getSystemTitle()}
+            {isHQ ? '본사 관리' : '입점사 관리'}
           </p>
         </div>
-        
+
         <nav className="sidebar-nav">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.path;
-            
+          {menu.map((page) => {
+            const Icon = page.icon!
             return (
               <Link
-                key={item.path}
-                to={item.path}
-                className={`nav-item ${isActive ? 'active' : ''}`}
+                key={page.path}
+                to={adminPath(page)}
+                className={`nav-item ${current === page ? 'active' : ''}`}
               >
                 <Icon className="nav-icon" />
-                {item.label}
+                {page.label}
               </Link>
-            );
+            )
           })}
-          
-          {/* 프로필 링크 */}
-          <Link
-            to="/admin/profile"
-            className={`nav-item ${location.pathname === '/admin/profile' ? 'active' : ''}`}
-          >
-            <User className="nav-icon" />
-            프로필
-          </Link>
         </nav>
       </div>
 
-      {/* Main Content */}
       <div className="main-content">
-        {/* Header */}
         <header className="header">
-          <div className="header-title">
-            {menuItems.find(item => item.path === location.pathname)?.label || 
-             (location.pathname === '/profile' ? '프로필' : 
-              location.pathname === '/product-approval' ? '상품 승인' : 
-              location.pathname === '/product-management' ? '상품 관리' : '대시보드')}
-          </div>
-          
+          <div className="header-title">{current?.label ?? ''}</div>
+
           <div className="header-actions">
-            <Link to="/admin/notice" style={{ textDecoration: 'none' }}>
-              <button className="btn" style={{ 
-                background: 'transparent', 
-                border: 'none',
-                position: 'relative',
-                cursor: 'pointer'
-              }}>
+            {pages.some((p) => p.path === 'notice') && (
+              <Link to="/admin/notice" aria-label="공지사항" className="btn" style={{ background: 'transparent', border: 'none' }}>
                 <Bell size={20} />
-                {/* 읽지 않은 알림 개수 표시 */}
-                {unreadNoticesCount > 0 && (
-                  <span style={{
-                    position: 'absolute',
-                    top: '-5px',
-                    right: '-5px',
-                    background: '#ef4444',
-                    color: 'white',
-                    borderRadius: '50%',
-                    width: '18px',
-                    height: '18px',
-                    fontSize: '0.75rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: '600'
-                  }}>
-                    {unreadNoticesCount > 9 ? '9+' : unreadNoticesCount}
-                  </span>
-                )}
-              </button>
-            </Link>
-            
-            {/* 사용자 드롭다운 메뉴 */}
+              </Link>
+            )}
+
             <div style={{ position: 'relative' }}>
               <button
                 className="user-info"
-                onClick={() => setShowUserMenu(!showUserMenu)}
+                onClick={() => setShowUserMenu((v) => !v)}
+                aria-expanded={showUserMenu}
                 style={{
-                  background: '#f8f9fa',
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.5rem 1rem',
-                  borderRadius: '8px',
-                  transition: 'background-color 0.2s ease'
+                  background: '#f8f9fa', border: 'none', cursor: 'pointer', display: 'flex',
+                  alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', borderRadius: '8px',
                 }}
-                onMouseEnter={(e) => (e.target as HTMLElement).style.backgroundColor = '#e9ecef'}
-                onMouseLeave={(e) => (e.target as HTMLElement).style.backgroundColor = '#f8f9fa'}
               >
                 <User size={20} />
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                  <span style={{ fontSize: '0.875rem', fontWeight: '600' }}>
-                    {brandName}
-                  </span>
-                  <span style={{ fontSize: '0.75rem', color: '#666' }}>
-                    {isAdmin() ? '본사' : '입점사'}
-                  </span>
+                  <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>{displayName}</span>
+                  <span style={{ fontSize: '0.75rem', color: '#666' }}>{isHQ ? '본사' : '입점사'}</span>
                 </div>
-                <ChevronDown size={16} style={{ 
-                  transform: showUserMenu ? 'rotate(180deg)' : 'rotate(0deg)',
-                  transition: 'transform 0.2s ease'
-                }} />
+                <ChevronDown size={16} style={{ transform: showUserMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }} />
               </button>
 
-              {/* 드롭다운 메뉴 */}
               {showUserMenu && (
                 <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  right: 0,
-                  marginTop: '0.5rem',
-                  background: 'white',
-                  border: '1px solid #ddd',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                  minWidth: '200px',
-                  zIndex: 1000
+                  position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem', background: 'white',
+                  border: '1px solid #ddd', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  minWidth: '200px', zIndex: 1000,
                 }}>
                   <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #eee' }}>
-                    <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>
-                      {user?.user_metadata?.name || '사용자'}
-                    </div>
-                    <div style={{ fontSize: '0.875rem', color: '#666' }}>
-                      {user?.email}
-                    </div>
+                    <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{user?.user_metadata?.name || '사용자'}</div>
+                    <div style={{ fontSize: '0.875rem', color: '#666' }}>{user?.email}</div>
                   </div>
-                  
                   <div style={{ padding: '0.5rem 0' }}>
-                    <Link
-                      to="/admin/profile"
-                      onClick={() => setShowUserMenu(false)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        padding: '0.5rem 1rem',
-                        color: '#333',
-                        textDecoration: 'none',
-                        transition: 'background-color 0.2s ease'
-                      }}
-                      onMouseEnter={(e) => (e.target as HTMLElement).style.backgroundColor = '#f8f9fa'}
-                      onMouseLeave={(e) => (e.target as HTMLElement).style.backgroundColor = 'transparent'}
-                    >
-                      <User size={16} />
-                      프로필 관리
-                    </Link>
-                    
+                    {pages.some((p) => p.path === 'profile') && (
+                      <Link
+                        to="/admin/profile"
+                        onClick={() => setShowUserMenu(false)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', color: '#333', textDecoration: 'none' }}
+                      >
+                        <User size={16} />
+                        프로필 관리
+                      </Link>
+                    )}
                     <button
-                      onClick={() => {
-                        setShowUserMenu(false);
-                        handleLogout();
-                      }}
+                      onClick={() => { setShowUserMenu(false); handleLogout() }}
                       style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        padding: '0.5rem 1rem',
-                        background: 'none',
-                        border: 'none',
-                        color: '#dc3545',
-                        cursor: 'pointer',
-                        transition: 'background-color 0.2s ease'
+                        width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem',
+                        background: 'none', border: 'none', color: '#dc3545', cursor: 'pointer',
                       }}
-                      onMouseEnter={(e) => (e.target as HTMLElement).style.backgroundColor = '#f8f9fa'}
-                      onMouseLeave={(e) => (e.target as HTMLElement).style.backgroundColor = 'transparent'}
                     >
                       <LogOut size={16} />
                       로그아웃
@@ -298,13 +125,10 @@ const Layout = ({ children, userRole }: LayoutProps) => {
           </div>
         </header>
 
-        {/* Content */}
-        <main className="content">
-          {children}
-        </main>
+        <main className="content">{children}</main>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default Layout;
+export default Layout

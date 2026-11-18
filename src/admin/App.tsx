@@ -1,23 +1,22 @@
-// @ts-nocheck -- TODO(고도화 2-5단계): 관리자 화면 재작성 시 제거. 재작성 전까지 타입 검사에서 임시 제외
-import { Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './shared/contexts/AuthContext';
-import ProtectedRoute from './shared/components/ProtectedRoute';
-import Login from './shared/pages/Login';
-import AdminRegister from './hq/pages/AdminRegister';
-import MerchantRegister from './merchant/pages/MerchantRegister';
-import AppRoutes from './AppRoutes';
-import './App.css';
+import { Routes, Route } from 'react-router-dom'
+import { AuthProvider } from './shared/contexts/AuthContext'
+import ProtectedRoute from './shared/components/ProtectedRoute'
+import Login from './shared/pages/Login'
+import MerchantRegister from './merchant/pages/MerchantRegister'
+import AppRoutes from './AppRoutes'
+import './App.css'
 
+// 본사 계정 공개 가입 화면(/hq-register)은 제거했다.
+// 역할은 DB(user_roles)에서만 부여되므로 가입해도 본사 권한이 생기지 않는, 동작하지 않는 화면이었다.
 function App() {
   return (
     <AuthProvider>
       <Routes>
         {/* 공개 라우트 (인증 불필요) */}
         <Route path="/login" element={<Login />} />
-        <Route path="/hq-register" element={<AdminRegister />} />
         <Route path="/merchant-register" element={<MerchantRegister />} />
-        
-        {/* 보호된 라우트 (인증 + Role 기반) */}
+
+        {/* 보호된 라우트 (본사·입점사 역할 필요) */}
         <Route path="/*" element={
           <ProtectedRoute requireAdmin={true}>
             <AppRoutes />
@@ -25,7 +24,7 @@ function App() {
         } />
       </Routes>
     </AuthProvider>
-  );
+  )
 }
 
-export default App;
+export default App

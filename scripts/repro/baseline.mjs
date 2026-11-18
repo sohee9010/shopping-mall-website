@@ -593,6 +593,35 @@ await check('P22', '계약 종료된 입점사가 숨김 처리된 상품을 다
     }
   })
 
+// P25: 상품 상태를 입점사가 정한다 (원본 화면이 등록 시 status='forsale'로 저장, RLS는 브랜드만 검사)
+//   → 본사 검수 없이 쇼핑몰에 바로 노출되고, 검수 대기 상품도 입점사가 스스로 판매중으로 바꾼다
+await check('P25', '입점사가 등록한 상품이 본사 검수 없이 쇼핑몰에 노출',
+  'src/admin/merchant/pages/Products.js:288 (등록 시 status: forsale), 0002 products 정책(상태 검사 없음)',
+  '입점사가 등록한 상품은 검수대기로 저장되고, 본사가 승인하기 전에는 고객에게 보이지 않아야 한다',
+  async () => {
+    const { client: lunelle } = await login('lunelle@etage.test')
+    const anon = newClient()
+    // (a) 원본 화면과 같은 방식으로 등록
+    const { data: nextId } = await lunelle.rpc('get_next_product_id')
+    const { data: a, error: aErr } = await lunelle.from('products')
+      .insert([{ id: nextId, name: 'P25 검수 우회 상품', price: 10000, brand: 'LUNELLE', status: 'forsale', stock: 5 }])
+      .select('id, status').single()
+    if (aErr) throw new Error(`등록 실패: ${aErr.message}`)
+    const { data: seenA } = await anon.from('products').select('id').eq('id', a.id)
+    // (b) 검수대기로 등록한 뒤 입점사가 직접 판매중으로 변경
+    const { data: id2 } = await lunelle.rpc('get_next_product_id')
+    const { data: b } = await lunelle.from('products')
+      .insert([{ id: id2, name: 'P25 검수 대기 상품', price: 10000, status: 'pending', stock: 5 }]).select('id').single()
+    await lunelle.from('products').update({ status: 'forsale' }).eq('id', b.id)
+    const { data: seenB } = await anon.from('products').select('id').eq('id', b.id)
+    const shownA = seenA?.length > 0, shownB = seenB?.length > 0
+    return {
+      reproduced: shownA || shownB,
+      actual: `status=forsale로 등록 → 저장된 상태 '${a.status}', 비로그인 고객 ${shownA ? '조회됨' : '조회 안 됨'} / ` +
+        `검수대기 상품을 입점사가 판매중으로 변경 → 고객 ${shownB ? '조회됨' : '조회 안 됨'}`,
+    }
+  })
+
 // ---------------------------------------------------------------------
 // 정상 기능 확인: 보안을 강화하다가 원래 되어야 하는 기능까지 막지 않았는지 검사한다
 // ---------------------------------------------------------------------
@@ -859,6 +888,57 @@ await works('보안 규칙: 일부라도 발송된 주문은 고객이 취소 �
   await lunelle.rpc('ship_order_items', { p_order_id: orderId, p_tracking_company: 'CJ대한통운', p_tracking_number: 'L-2' })
   const { error } = await customer.from('orders').update({ status: '취소요청', cancel_reason: '발송 후 취소 시도' }).eq('id', orderId)
   return { ok: !!error, detail: error ? `거부됨: ${error.message}` : '취소 요청 성공 (문제: 발송된 상품이 있는데 취소 가능)' }
+})
+
+// ---- 상품 검수(0012) 이후에만 의미가 있는 확인 ----
+const hasReview = !(await newClient().from('products').select('reject_reason').limit(1)).error
+
+await works('상품 검수: 옵션 상품 등록(검수대기) → 반려 → 수정 시 재검수 요청 → 승인 후 고객에게 노출', async () => {
+  if (!hasReview) return { ok: true, detail: '0012 이전 구조 — 해당 없음' }
+  const { client: lunelle } = await login('lunelle@etage.test')
+  const { client: hq } = await login('hq@etage.test')
+  const anon = newClient()
+  const product = { name: '검수 흐름 확인 코트', price: 300000, image_urls: [] }
+  const options = [{ position: 1, name: '색상' }, { position: 2, name: '사이즈' }]
+  const variants = [
+    { option1: '블랙', option2: 'S', stock: 2 },
+    { option1: '블랙', option2: 'M', stock: 0, price_delta: 10000 },
+  ]
+  const { data: id, error } = await lunelle.rpc('save_product', { p_product: product, p_options: options, p_variants: variants })
+  if (error) throw new Error(`등록 실패: ${error.message}`)
+  const step = []
+  const state = async () => (await hq.from('products').select('status, stock, reject_reason').eq('id', id).single()).data
+  let s = await state(); step.push(`등록 ${s.status}·재고 ${s.stock}`)
+  const hidden1 = !(await anon.from('products').select('id').eq('id', id)).data?.length
+  await hq.rpc('review_product', { p_product_id: id, p_approve: false, p_reason: '대표 이미지 없음' })
+  s = await state(); step.push(`반려 ${s.status}(${s.reject_reason})`)
+  await lunelle.rpc('save_product', { p_product: { ...product, id, image_urls: ['coat.jpg'] }, p_options: options, p_variants: variants })
+  s = await state(); step.push(`수정 → ${s.status}`)
+  await hq.rpc('review_product', { p_product_id: id, p_approve: true })
+  s = await state(); step.push(`승인 → ${s.status}`)
+  const shown = (await anon.from('products').select('id').eq('id', id)).data?.length > 0
+  const { data: skus } = await anon.from('product_variants').select('option1, option2, is_active').eq('product_id', id).eq('is_active', true)
+  return {
+    ok: hidden1 && shown && s.status === 'forsale' && skus?.length === 2,
+    detail: `${step.join(' / ')}, 승인 전 고객 ${hidden1 ? '조회 안 됨' : '조회됨'}, 승인 후 ${shown ? '조회됨' : '조회 안 됨'}, 판매 SKU ${skus?.length ?? 0}개`,
+  }
+})
+await works('상품 검수: 입점사는 판매중 ↔ 숨김만 가능, 검수 기록·판매량은 못 바꿈', async () => {
+  if (!hasReview) return { ok: true, detail: '0012 이전 구조 — 해당 없음' }
+  const { client: lunelle } = await login('lunelle@etage.test')
+  const { data: p } = await lunelle.from('products').select('id, sales').eq('status', 'forsale').order('id').limit(1).single()
+  const hide = await lunelle.from('products').update({ status: 'hidden' }).eq('id', p.id).select('status').single()
+  const show = await lunelle.from('products').update({ status: 'forsale', sales: 99999 }).eq('id', p.id).select('status, sales').single()
+  const pend = await lunelle.from('products').update({ status: 'pending' }).eq('id', p.id)
+  const ok = hide.data?.status === 'hidden' && show.data?.status === 'forsale' && show.data?.sales === p.sales && !!pend.error
+  return { ok, detail: `숨김 ${hide.data?.status}, 다시 판매 ${show.data?.status}(판매량 ${show.data?.sales}, 원래 ${p.sales}), 검수대기로 변경 ${pend.error ? '거부' : '허용'}` }
+})
+await works('상품 검수: 고객·입점사는 검수 함수를 쓸 수 없음', async () => {
+  if (!hasReview) return { ok: true, detail: '0012 이전 구조 — 해당 없음' }
+  const { client: lunelle } = await login('lunelle@etage.test')
+  const { data: own } = await lunelle.from('products').select('id').order('id').limit(1).single()
+  const { error } = await lunelle.rpc('review_product', { p_product_id: own.id, p_approve: false, p_reason: '자기 상품 반려 시도' })
+  return { ok: !!error, detail: error ? `거부됨: ${error.message}` : '입점사가 검수 함수 실행 성공 (문제)' }
 })
 
 // ---------------------------------------------------------------------
