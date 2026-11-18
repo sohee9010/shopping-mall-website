@@ -188,6 +188,24 @@ export const updateOrderStatus = async (orderId: string, status: Order['status']
   }
 }
 
+// 반품 신청 (배송완료 주문만, P24)
+// 이전: 마이페이지가 화면 상태와 localStorage만 바꾸고 DB에는 아무것도 보내지 않았다
+//       → '반품 신청이 완료되었습니다' 알림만 뜨고 입점사·본사에 전달되지 않음
+// DB 규칙(guard_orders_update)이 '배송완료 → 반품신청'만 허용하므로 다른 상태에서는 오류로 막힌다.
+// 바뀐 행을 돌려받아 확인한다: RLS에 걸리면 오류 없이 0행이 바뀌므로 그 경우도 실패로 본다
+export const requestReturn = async (orderId: string, reason: string): Promise<{ ok: boolean; message?: string }> => {
+  const { data, error } = await supabase
+    .from('orders')
+    .update({ status: '반품신청', return_reason: reason, updated_at: new Date().toISOString() })
+    .eq('id', orderId)
+    .select('id')
+  if (error) {
+    console.error('반품 신청 오류:', error)
+    return { ok: false, message: error.message }
+  }
+  return data && data.length === 1 ? { ok: true } : { ok: false, message: '반품을 신청할 수 있는 주문이 아닙니다.' }
+}
+
 // 주문 취소 요청 (관리자 검토 필요)
 export const cancelOrder = async (orderId: string, reason: string): Promise<boolean> => {
   try {
