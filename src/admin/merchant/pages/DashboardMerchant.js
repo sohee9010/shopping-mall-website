@@ -141,12 +141,6 @@ const DashboardMerchant = () => {
       case 'orders':
         navigate('/admin/orders');
         break;
-      case 'customers':
-        navigate('/admin/customers');
-        break;
-      case 'statistics':
-        navigate('/admin/statistics');
-        break;
       default:
         break;
     }
@@ -360,21 +354,6 @@ const DashboardMerchant = () => {
           >
             <ShoppingCart size={16} />
             주문 처리
-          </button>
-          <button 
-            className="btn btn-warning"
-            onClick={() => handleQuickAction('customers')}
-          >
-            <Users size={16} />
-            고객 관리
-          </button>
-          <button 
-            className="btn" 
-            style={{ background: '#6f42c1', color: 'white' }}
-            onClick={() => handleQuickAction('statistics')}
-          >
-            <TrendingUp size={16} />
-            매출 분석
           </button>
         </div>
       </div>
