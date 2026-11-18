@@ -479,6 +479,121 @@ await check('P19', '여러 브랜드가 섞인 주문에서 입점사가 남의 
   })
 
 // ---------------------------------------------------------------------
+// P20: 소유 판단이 '브랜드 이름 문자열' 비교라서, 이름이 바뀌면 소유 관계가 끊긴다
+//   - 정책·함수가 products.brand / order_items.brand / inquiries.product_brand 를
+//     private.my_brand_name()(brand_admins.name)과 문자열로 비교한다
+//   - 본사가 브랜드명을 고치는 것은 정상 업무(리브랜딩·오타 수정)이고 DB 규칙상 허용된다
+// 입점사가 '지금' 관리할 수 있는 자기 데이터 개수를 센다
+// (새 주문을 만들면 시드 SKU 재고를 써서 뒤 검사가 실패하므로, 앞 검사가 만든 주문까지 포함해 '보이는 주문 수'를 센다)
+async function merchantOwnership(client) {
+  const mine = await client.rpc('get_my_role')
+  // 상품: 값은 그대로 두고 update → 돌아온 행 수 = 수정 권한이 있는 상품 수
+  const { data: editable } = await client.from('products').update({ updated_at: new Date().toISOString() })
+    .gte('id', 0).select('id')
+  const { data: orders } = await merchantOrdersLikeApp(client)
+  const { data: inquiries } = await client.from('inquiries').select('id')
+  return {
+    brandName: mine.data?.[0]?.brand_name,
+    products: editable?.length ?? 0,
+    orders: orders?.length ?? 0,
+    inquiries: inquiries?.length ?? 0,
+  }
+}
+
+await check('P20', '본사가 브랜드명을 바꾸면 입점사가 자기 상품·주문·문의를 모두 잃음',
+  '정책 `brand = private.my_brand_name()` (0002·0007·0009), products.brand·order_items.brand·inquiries.product_brand가 브랜드 FK가 아닌 이름 문자열',
+  '브랜드명(표시용 값)이 바뀌어도 입점사가 관리하는 상품·주문·문의는 그대로여야 한다',
+  async () => {
+    const { client: customer, user } = await login('customer@etage.test')
+    const knit = await productByName(customer, 'LUNELLE 캐시미어 라운드넥 니트')
+    await customer.from('inquiries').insert({
+      user_id: user.id, inquiry_type: '상품문의', category: '사이즈', title: 'P20 재현', content: '사이즈 문의',
+      email: 'customer@etage.test', product_id: knit.id, product_name: knit.name, product_brand: knit.brand,
+    })
+    const { client: lunelle } = await login('lunelle@etage.test')
+    const { client: hq } = await login('hq@etage.test')
+    const { data: brand } = await hq.from('brand_admins').select('id, name').eq('name', 'LUNELLE').single()
+
+    const before = await merchantOwnership(lunelle)
+    const { error: renameErr } = await hq.from('brand_admins').update({ name: 'LUNELLE PARIS' }).eq('id', brand.id)
+    let after, shopShows, receiptShows
+    try {
+      after = await merchantOwnership(lunelle)
+      // 이름이 바뀐 상태에서: 쇼핑몰 상품 표시(새 이름이어야 함), 고객의 과거 주문 줄(구매 당시 이름이어야 함)
+      shopShows = (await productByName(customer, knit.name)).brand
+      const { data: line } = await customer.from('order_items').select('brand').eq('product_id', knit.id).limit(1)
+      receiptShows = line?.[0]?.brand ?? '(주문 줄 없음)'
+    } finally {
+      await hq.from('brand_admins').update({ name: brand.name }).eq('id', brand.id) // 다음 검사를 위해 원래 이름으로 되돌림
+    }
+    const lost = !renameErr && (after.products < before.products || after.orders < before.orders || after.inquiries < before.inquiries)
+    const fmt = (s) => `상품 ${s.products}개 수정 가능, 주문 ${s.orders}건, 문의 ${s.inquiries}건`
+    return {
+      reproduced: lost,
+      actual: `변경 전('${before.brandName}'): ${fmt(before)} → 본사가 브랜드명을 'LUNELLE PARIS'로 변경 ${renameErr ? '실패: ' + renameErr.message : '성공'} → ` +
+        `변경 후('${after?.brandName}'): ${after ? fmt(after) : '-'}. 변경 중 쇼핑몰 상품 표시 '${shopShows}', 고객의 과거 주문 줄 '${receiptShows}'`,
+    }
+  })
+
+// P21: 문의의 담당 브랜드(product_brand)를 고객 화면이 보낸 문자열 그대로 저장한다
+//   → 상품과 다른 브랜드로 문의가 전달되고, 실제 상품 브랜드 입점사는 문의를 못 본다
+await check('P21', '고객이 보낸 브랜드 문자열로 문의 담당 입점사가 정해짐 (상품과 불일치 가능)',
+  'src/pages/InquiryPage.tsx:209 (`product_brand: productBrand`), 정책 "inquiries: 고객 본인 문의" (product_brand 검증 없음)',
+  '문의 담당 브랜드는 상품을 보고 서버가 정해야 하고, 상품과 다른 브랜드로 저장되면 안 된다',
+  async () => {
+    const { client: customer, user } = await login('customer@etage.test')
+    const blazer = await productByName(customer, 'GREYMONT 울 블레이저')
+    const { data: ins, error } = await customer.from('inquiries').insert({
+      user_id: user.id, inquiry_type: '상품문의', category: '배송', title: 'P21 재현', content: '블레이저 문의',
+      email: 'customer@etage.test', product_id: blazer.id, product_name: blazer.name, product_brand: 'LUNELLE',
+    }).select('id, product_brand').single()
+    if (error) return { reproduced: false, actual: `저장 거부: ${error.message}` }
+    const seen = async (email) => {
+      const { client } = await login(email)
+      const { data } = await client.from('inquiries').select('id').eq('id', ins.id)
+      return (data ?? []).length > 0
+    }
+    const byLunelle = await seen('lunelle@etage.test')
+    const byGreymont = await seen('greymont@etage.test')
+    return {
+      reproduced: ins.product_brand !== blazer.brand || byLunelle || !byGreymont,
+      actual: `${blazer.brand} 상품 문의를 product_brand='LUNELLE'로 보냄 → 저장된 값 '${ins.product_brand}', ` +
+        `LUNELLE 입점사 ${byLunelle ? '조회 가능(남의 상품 문의)' : '조회 불가'}, GREYMONT 입점사 ${byGreymont ? '조회 가능' : '조회 불가(자기 상품 문의를 못 봄)'}`,
+    }
+  })
+
+// P22: 입점사 판정 함수가 브랜드의 계약 상태(brand_admins.status)를 보지 않는다
+//   → 본사가 계약을 종료하고 상품을 숨겨도, 종료된 입점사가 상품을 다시 판매중으로 돌리고 주문·고객 정보를 계속 본다
+await check('P22', '계약 종료된 입점사가 숨김 처리된 상품을 다시 판매하고 주문을 계속 조회',
+  'private.my_brand_id()·my_brand_name() (0002, 계약 상태 확인 없음), src/admin/hq/pages/Tenants.js:345-370 (계약 종료 = 상태 변경 + 상품 숨김)',
+  '계약이 종료(또는 승인 대기)된 입점사는 상품·주문·문의에 접근할 수 없어야 한다',
+  async () => {
+    const { client: hq } = await login('hq@etage.test')
+    const { data: brand } = await hq.from('brand_admins').select('id, status').eq('name', 'LUNELLE').single()
+    const { data: products } = await hq.from('products').select('id, status').eq('brand', 'LUNELLE').order('id')
+    // 본사 화면의 계약 종료와 같은 순서: 입점사 상태 → 상품 숨김
+    await hq.from('brand_admins').update({ status: 'terminated', terminated_at: new Date().toISOString() }).eq('id', brand.id)
+    await hq.from('products').update({ status: 'hidden' }).eq('brand', 'LUNELLE')
+    let revived = 0, orders = 0
+    try {
+      const { client: lunelle } = await login('lunelle@etage.test')
+      const { data: upd } = await lunelle.from('products').update({ status: 'forsale' }).eq('id', products[0].id).select('id')
+      revived = upd?.length ?? 0
+      const { data: seen } = await merchantOrdersLikeApp(lunelle)
+      orders = seen?.length ?? 0
+    } finally {
+      // 다음 검사를 위해 원래 상태로 되돌림
+      await hq.from('brand_admins').update({ status: brand.status, terminated_at: null }).eq('id', brand.id)
+      for (const p of products) await hq.from('products').update({ status: p.status }).eq('id', p.id)
+    }
+    return {
+      reproduced: revived > 0 || orders > 0,
+      actual: `본사가 LUNELLE 계약 종료 + 상품 ${products.length}개 숨김 → 종료된 입점사가 상품을 판매중으로 변경 ${revived ? '성공' : '거부'}, ` +
+        `주문 ${orders}건 조회`,
+    }
+  })
+
+// ---------------------------------------------------------------------
 // 정상 기능 확인: 보안을 강화하다가 원래 되어야 하는 기능까지 막지 않았는지 검사한다
 // ---------------------------------------------------------------------
 const regressions = []
@@ -636,6 +751,38 @@ await works('보안 규칙: 입점사는 다른 브랜드 이름으로 상품을
   return { ok: !!error, detail: error ? `거부됨: ${error.message}` : '등록 성공 (문제)' }
 })
 
+// ---- 브랜드 번호(0010) 이후에만 의미가 있는 확인 ----
+const hasBrandId = !(await newClient().from('products').select('brand_id').limit(1)).error
+
+await works('브랜드명 변경: 쇼핑몰 표시는 새 이름, 과거 주문 줄은 구매 당시 이름', async () => {
+  if (!hasBrandId) return { ok: true, detail: '0010 이전 구조(브랜드 번호 없음) — 해당 없음' }
+  const { client: hq } = await login('hq@etage.test')
+  const { client: customer } = await login('customer@etage.test')
+  const { data: brand } = await hq.from('brand_admins').select('id, name').eq('name', 'GREYMONT').single()
+  const blazer = await productByName(customer, 'GREYMONT 울 블레이저')
+  let shown, receipt
+  try {
+    await hq.from('brand_admins').update({ name: 'GREYMONT ATELIER' }).eq('id', brand.id)
+    shown = (await productByName(customer, blazer.name)).brand
+    const { data } = await customer.from('order_items').select('brand').eq('product_id', blazer.id).limit(1)
+    receipt = data?.[0]?.brand
+  } finally {
+    await hq.from('brand_admins').update({ name: brand.name }).eq('id', brand.id)
+  }
+  return {
+    ok: shown === 'GREYMONT ATELIER' && receipt === 'GREYMONT',
+    detail: `상품 표시 '${shown}', 과거 주문 줄 '${receipt ?? '(없음)'}'`,
+  }
+})
+await works('입점사: 브랜드를 보내지 않고 상품 등록 → 자기 브랜드로 저장', async () => {
+  if (!hasBrandId) return { ok: true, detail: '0010 이전 구조 — 해당 없음' }
+  const { client } = await login('lunelle@etage.test')
+  const { data: nextId } = await client.rpc('get_next_product_id')
+  const { data, error } = await client.from('products').insert([{ id: nextId, name: '브랜드 생략 등록', price: 1000, status: 'hidden' }])
+    .select('brand, brand_id').single()
+  return { ok: !error && data.brand === 'LUNELLE', detail: error ? `실패: ${error.message}` : `저장된 브랜드 '${data.brand}'(번호 ${data.brand_id})` }
+})
+
 // ---- 주문 상품 줄(0009) 이후에만 의미가 있는 확인 ----
 const hasOrderItems = !(await newClient().from('order_items').select('id').limit(1)).error
 
@@ -699,7 +846,7 @@ await works('보안 규칙: 일부라도 발송된 주문은 고객이 취소 �
 const outPath = process.argv[2] ?? 'docs/repro/baseline-report.md'
 const now = new Date()
 const report = [
-  `# 문제 재현 보고서 (${outPath.includes('baseline') ? 'v0-baseline, 수정 전' : '수정 후'})`,
+  `# 문제 재현 보고서 (${outPath.includes('baseline') ? 'v0-baseline, 수정 전' : outPath.includes('before') ? '수정 전' : '수정 후'})`,
   '',
   `- 실행 일시: ${now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`,
   '- 대상: 로컬 Supabase(Docker), 마이그레이션 `baseline` + `seed.sql` 적용 직후 (`npm run db:reset`)',

@@ -239,12 +239,8 @@ const Products = () => {
         
         // merchant 역할인 경우 브랜드별 필터링
         if (roleInfo.role === 'merchant') {
-          const userBrand = roleInfo.brandName || '';
-          console.log('🏷️ 사용자 브랜드:', userBrand);
-          
-          filteredProducts = result.data.filter(product => 
-            product.brand && product.brand.toLowerCase() === userBrand.toLowerCase()
-          );
+          // 이름(대소문자 무시 비교) 대신 브랜드 번호로 거른다 (0010)
+          filteredProducts = result.data.filter(product => product.brand_id === roleInfo.brandId);
           
           console.log(`🔍 브랜드 필터링 결과: ${filteredProducts.length}개 상품`);
         }

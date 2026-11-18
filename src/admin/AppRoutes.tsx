@@ -89,6 +89,19 @@ const AppRoutes: React.FC = () => {
     </Routes>
   );
 
+  // 계약이 종료됐거나 승인 대기 중인 브랜드의 입점사: 서버가 브랜드를 인정하지 않아(0010, P22) brandId가 비어 온다.
+  // 모든 데이터 접근은 DB 정책이 이미 막으므로, 화면은 빈 목록·오류 대신 이유를 안내한다
+  if (userRole === 'merchant' && roleInfo?.brandId == null) {
+    return (
+      <Layout userRole={userRole}>
+        <div style={{ padding: '48px 24px', textAlign: 'center' }}>
+          <h2 style={{ marginBottom: 12 }}>입점 계약이 활성 상태가 아닙니다</h2>
+          <p style={{ color: '#666' }}>계약이 종료되었거나 승인 대기 중인 브랜드는 관리자 기능을 사용할 수 없습니다. 본사에 문의해 주세요.</p>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout userRole={userRole}>
       {userRole === 'admin' || userRole === 'hq' ? renderHQRoutes() : renderMerchantRoutes()}

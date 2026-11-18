@@ -807,7 +807,7 @@ const StatisticsHQ = () => {
       const { data: products, error: productsError } = await supabase
         .from('products')
         .select('id')
-        .eq('brand', tenantData.name);
+        .eq('brand_id', tenantData.id); // 브랜드 번호 기준 (0010)
 
       if (productsError) {
         console.error('상품 수 조회 오류:', productsError);
