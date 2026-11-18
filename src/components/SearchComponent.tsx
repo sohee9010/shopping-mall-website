@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import ProductCard, { ProductGrid } from './product/ProductCard'
 import { 
   getSearchSuggestions, 
   getPopularSearchTerms, 
@@ -218,10 +219,6 @@ const SearchComponent: React.FC = () => {
     }
   }
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ko-KR').format(price)
-  }
-
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
       {/* 검색 헤더 */}
@@ -419,38 +416,13 @@ const SearchComponent: React.FC = () => {
               <p className="mt-2 text-gray-600">검색 중...</p>
             </div>
           ) : searchResults.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {searchResults.map((product) => (
-                <div
-                  key={product.id}
-                  className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => navigate(`/product/${product.id}`)}
-                >
-                  <div className="aspect-square overflow-hidden rounded-t-lg">
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                    />
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">
-                      {product.name}
-                    </h3>
-                    <p className="text-lg font-bold text-blue-600 mb-2">
-                      {formatPrice(product.price)}원
-                    </p>
-                    {product.brand && (
-                      <p className="text-sm text-gray-600 mb-2">{product.brand}</p>
-                    )}
-                    <div className="flex items-center justify-between text-sm text-gray-500">
-                      <span>판매량: {product.sales}</span>
-                      <span>재고: {product.stock}</span>
-                    </div>
-                  </div>
-                </div>
+            // 원본 카드는 고객에게 판매량·재고 숫자를 그대로 보여 줬다. 재고는 SKU 합계 캐시(0007)라
+            // 옵션 상품에서는 '고른 옵션의 재고'와 다르고, 판매량은 운영용 정보라 공통 카드에서는 표시하지 않는다
+            <ProductGrid>
+              {searchResults.map((product, index) => (
+                <ProductCard key={product.id} product={product} eager={index < 4} />
               ))}
-            </div>
+            </ProductGrid>
           ) : (
             <div className="text-center py-12">
               <p className="text-gray-600 text-lg">검색 결과가 없습니다.</p>

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { getProductsByLevel3Category, getProductsByParentCategory, getCategoryById } from '../services/categoryService'
 import { supabase } from '../services/supabase'
 import { Product } from '../types'
+import ProductCard, { ProductGrid, ProductGridSkeleton } from '../components/product/ProductCard'
 
 const CategoryPage: React.FC = () => {
     const { categoryId, category } = useParams<{ categoryId: string; category: string }>()
@@ -15,7 +16,6 @@ const CategoryPage: React.FC = () => {
     const [subcategoryProductCounts, setSubcategoryProductCounts] = useState<{[key: number]: number}>({})
     const [loading, setLoading] = useState<boolean>(true)
     const [error, setError] = useState<string>('')
-    const navigate = useNavigate()
 
     useEffect(() => {
         const fetchProducts = async () => {
@@ -129,12 +129,16 @@ const CategoryPage: React.FC = () => {
         }
     }
 
+    // 로딩 화면은 실제 화면과 같은 틀(제목 자리 + 상품 격자 자리)로 그린다 → 내용이 들어와도 움직이지 않음 (CLS)
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto mb-4"></div>
-                    <p className="text-gray-600">상품을 불러오는 중...</p>
+            <div className="min-h-screen bg-gray-50 py-8">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="mb-8">
+                        <div className="h-9 w-32 bg-etage-canvas animate-pulse mb-2" />
+                        <div className="h-6 w-24 bg-etage-canvas animate-pulse" />
+                    </div>
+                    <ProductGridSkeleton />
                 </div>
             </div>
         )
@@ -203,42 +207,13 @@ const CategoryPage: React.FC = () => {
 
                 {/* 상품 목록 */}
                 {products.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {products.map((product) => (
-                            <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-                                <div className="aspect-w-1 aspect-h-1 w-full">
-                                    <img
-                                        src={product.image}
-                                        alt={product.name}
-                                        className="w-full h-48 object-cover"
-                                        onError={(e) => {
-                                            const target = e.target as HTMLImageElement
-                                            target.src = '/placeholder-image.jpg'
-                                        }}
-                                    />
-                                </div>
-                                <div className="p-4">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
-                                        {product.name}
-                                    </h3>
-                                    <p className="text-gray-600 text-sm mb-2 line-clamp-2">
-                                        {product.description}
-                                    </p>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-xl font-bold text-gray-900">
-                                            ₩{product.price?.toLocaleString()}
-                                        </span>
-                                        <button 
-                                            onClick={() => navigate(`/product/${product.id}`)}
-                                            className="bg-gray-800 text-white px-3 py-1 rounded text-sm hover:bg-gray-600 transition-colors"
-                                        >
-                                            상세보기
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                    // 이전에는 '상세보기' 버튼만 링크였다(이미지·상품명 클릭 무반응). 이제 카드 전체가 링크
+                    <ProductGrid>
+                        {products.map((product, index) => (
+                            // 모바일·데스크톱 첫 줄 카드는 바로 보이므로 지연 로딩하지 않는다
+                            <ProductCard key={product.id} product={product} eager={index < 4} />
                         ))}
-                    </div>
+                    </ProductGrid>
                 ) : (
                     <div className="text-center py-12">
                         <div className="text-gray-400 text-6xl mb-4">📦</div>

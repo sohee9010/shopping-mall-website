@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import ProductCard, { ProductGrid } from '../components/product/ProductCard'
 import { useWishlistContext } from '../context/WishlistContext'
 import { useUser } from '../context/UserContext'
 import Sidebar from '../components/Sidebar'
@@ -160,35 +160,15 @@ const WishlistPage: React.FC = () => {
 
             {/* 찜 아이템 목록 */}
             {wishlistItems.length > 0 && activeTab === 'shopping' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <ProductGrid>
                 {wishlistItems.map((item) => (
-                  <div key={item.id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300">
-                    <div className="relative">
-                      <Link to={`/product/${item.id}`}>
-                        <img 
-                          src={item.image} 
-                          alt={item.name} 
-                          className="w-full h-48 object-cover"
-                        />
-                      </Link>
-                      <button
-                        className="absolute top-2 right-2 w-8 h-8 bg-white border border-gray-300 rounded-full flex items-center justify-center text-gray-600 hover:bg-red-500 hover:text-white hover:border-red-500 transition-colors duration-300"
-                        onClick={() => removeFromWishlist(item.id)}
-                        title="찜 해제"
-                      >
-                        ×
-                      </button>
-                    </div>
-                    <div className="p-4">
-                      <div className="text-sm text-gray-500 mb-1">{item.brand || '브랜드'}</div>
-                      <Link to={`/product/${item.id}`} className="block text-gray-800 font-medium mb-2 hover:text-gray-600 transition-colors duration-300 line-clamp-2">
-                        {item.name}
-                      </Link>
-                      <div className="text-lg font-semibold text-gray-800">₩{item.price.toLocaleString()}</div>
-                    </div>
-                  </div>
+                  <ProductCard
+                    key={item.id}
+                    product={item}
+                    cornerAction={{ label: `${item.name} 찜 해제`, onClick: () => removeFromWishlist(item.id) }}
+                  />
                 ))}
-              </div>
+              </ProductGrid>
             )}
           </div>
         </div>
