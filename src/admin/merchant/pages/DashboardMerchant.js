@@ -75,13 +75,13 @@ const DashboardMerchant = () => {
         console.error('브랜드 정보를 가져올 수 없습니다.');
         return;
       }
-      setMerchantBrand(brand);
+      setMerchantBrand(brand.name); // 화면 표시는 이름
 
-      // 2. 병렬로 모든 데이터 가져오기
+      // 2. 병렬로 모든 데이터 가져오기 (조회·집계 기준은 브랜드 번호)
       const [statsData, ordersData, productsData] = await Promise.all([
-        getMerchantDashboardStats(brand),
-        getMerchantRecentOrders(brand, 5),
-        getMerchantTopProducts(brand, 5)
+        getMerchantDashboardStats(brand.id),
+        getMerchantRecentOrders(brand.id, 5),
+        getMerchantTopProducts(brand.id, 5)
       ]);
 
       setDashboardStats(statsData);

@@ -72,7 +72,9 @@ const StatisticsMerchant = () => {
     }
   });
 
-  // 브랜드명: DB 역할(user_roles -> brand_admins)에서 가져온다
+  // 브랜드: DB 역할(user_roles -> brand_admins)에서 가져온다
+  // 조회·집계 기준은 번호(brandId), 이름(brandName)은 화면 표시용 (0010: 주문 줄의 이름은 '주문 당시 이름'이라 비교에 쓰면 안 됨)
+  const brandId = roleInfo?.brandId ?? null;
   useEffect(() => {
     if (roleInfo?.brandName) {
       setBrandName(roleInfo.brandName);
@@ -90,7 +92,7 @@ const StatisticsMerchant = () => {
       const { data, error } = await supabase
         .from('brand_sales_targets')
         .select('monthly_target')
-        .eq('brand_name', brandName)
+        .eq('brand_id', brandId)
         .eq('target_year', currentYear)
         .eq('target_month', currentMonth)
         .single();
@@ -118,12 +120,12 @@ const StatisticsMerchant = () => {
       const { error } = await supabase
         .from('brand_sales_targets')
         .upsert({
-          brand_name: brandName,
+          brand_id: brandId,
           target_year: currentYear,
           target_month: currentMonth,
           monthly_target: newTarget,
           updated_at: new Date().toISOString()
-        });
+        }, { onConflict: 'brand_id,target_year,target_month' }); // 충돌 키를 안 주면 기본키(id)로 판단해 같은 달 두 번째 저장이 실패한다
       
       if (error) {
         console.error('목표 설정 오류:', error);
@@ -165,7 +167,7 @@ const StatisticsMerchant = () => {
       const { data: products } = await supabase
         .from('products')
         .select('status')
-        .eq('brand', brandName);
+        .eq('brand_id', brandId);
 
       console.log(`📦 상품 데이터:`, products);
       
@@ -190,7 +192,7 @@ const StatisticsMerchant = () => {
       // JSONB items 배열에서 해당 브랜드 상품이 포함된 주문 필터링
       const brandOrders = allOrders?.filter(order => {
         if (!order.items || !Array.isArray(order.items)) return false;
-        return order.items.some(item => item.brand === brandName);
+        return order.items.some(item => item.brand_id === brandId);
       }) || [];
 
       // 브랜드별 매출 계산 (해당 브랜드 상품만)
@@ -198,7 +200,7 @@ const StatisticsMerchant = () => {
       let totalOrders = brandOrders.length;
 
       brandOrders.forEach(order => {
-        const brandItems = order.items.filter(item => item.brand === brandName);
+        const brandItems = order.items.filter(item => item.brand_id === brandId);
         const brandOrderTotal = brandItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         totalSales += brandOrderTotal;
       });
@@ -210,7 +212,7 @@ const StatisticsMerchant = () => {
       
       let monthlySales = 0;
       monthlyOrders.forEach(order => {
-        const brandItems = order.items.filter(item => item.brand === brandName);
+        const brandItems = order.items.filter(item => item.brand_id === brandId);
         const brandOrderTotal = brandItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         monthlySales += brandOrderTotal;
       });
@@ -264,7 +266,7 @@ const StatisticsMerchant = () => {
           status,
           categories!inner(name)
         `)
-        .eq('brand', brandName);
+        .eq('brand_id', brandId);
 
       const productsByCategory = products?.reduce((acc, product) => {
         const category = product.categories?.name || '기타';
@@ -305,7 +307,7 @@ const StatisticsMerchant = () => {
         const month = orderDate.toISOString().slice(0, 7); // YYYY-MM
         
         // 브랜드별 상품 필터링
-        const brandItems = order.items.filter(item => item.brand === brandName);
+        const brandItems = order.items.filter(item => item.brand_id === brandId);
         
         if (brandItems.length > 0) {
           // 인기 상품 데이터 누적
@@ -389,7 +391,7 @@ const StatisticsMerchant = () => {
         
         if (order.items && Array.isArray(order.items)) {
           const brandRevenue = order.items
-            .filter(item => item.brand === brandName)
+            .filter(item => item.brand_id === brandId)
             .reduce((sum, item) => sum + (item.price * item.quantity), 0);
           
           if (brandRevenue > 0) {

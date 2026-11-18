@@ -206,7 +206,7 @@ const InquiryPage: React.FC = () => {
         sms_notification: formData.smsNotification,
         product_id: productId,
         product_name: productName,
-        product_brand: productBrand,
+        product_brand: productBrand, // 표시용. 담당 브랜드(brand_id)와 이 값은 서버가 product_id에서 다시 정한다 (0010, P21)
         order_id: orderId,
         // TODO: 이미지 업로드 구현 시 image_url 추가
         image_url: null

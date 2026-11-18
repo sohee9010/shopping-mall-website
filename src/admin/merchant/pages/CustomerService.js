@@ -27,24 +27,26 @@ const CustomerService = () => {
   const [loading, setLoading] = useState(true);
   const [brandName, setBrandName] = useState('');
 
-  // 현재 입점사의 브랜드명: DB 역할(user_roles -> brand_admins)에서 가져온다
+  // 현재 입점사의 브랜드: DB 역할(user_roles -> brand_admins)에서 가져온다
+  // 조회 기준은 번호(brandId), 이름은 화면 표시용
+  const brandId = roleInfo?.brandId ?? null;
   useEffect(() => {
     setBrandName(roleInfo?.brandName || '');
   }, [roleInfo?.brandName]);
 
   // 브랜드별 문의 목록 로드
   useEffect(() => {
-    if (brandName) {
+    if (brandId != null) {
       loadInquiries();
     }
-  }, [brandName]);
+  }, [brandId]);
 
   const loadInquiries = async () => {
     try {
       setLoading(true);
       console.log('🔄 입점사 고객서비스: 문의 목록 로드 시작');
       
-      const data = await getInquiriesByBrand(brandName);
+      const data = await getInquiriesByBrand(brandId);
       
       // 데이터베이스 형식을 UI 형식으로 변환
       const formattedInquiries = data.map(inquiry => ({

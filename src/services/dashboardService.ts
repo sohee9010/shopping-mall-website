@@ -1,7 +1,9 @@
 import { supabase } from './supabase'
+import { getMyRole } from './roleService'
 
 // merchant_orders(0009)가 돌려주는 주문 한 건: items에는 이 브랜드의 상품 줄만 들어 있다
-type MerchantOrderRow = { id: string; user_id: string | null; status: string; order_date: string; total_amount: number; customer_name: string | null; items: { brand: string; name: string; price: number; quantity: number }[] }
+// 브랜드 비교는 brand_id로 한다 (0010). items[].brand는 '주문 당시 이름'이라 브랜드명이 바뀌면 현재 이름과 다르다
+type MerchantOrderRow = { id: string; user_id: string | null; status: string; order_date: string; total_amount: number; customer_name: string | null; items: { brand: string; brand_id: number; name: string; price: number; quantity: number }[] }
 
 export interface DashboardStats {
   todayOrders: number
@@ -33,7 +35,7 @@ export interface TopProduct {
 // 입점사 주문 데이터는 merchant_orders(자기 브랜드 상품 줄만, 0009)에서 읽는다.
 // 이전에는 orders 전체를 읽어 화면에서 브랜드로 걸렀다 (P19)
 // 입점사별 대시보드 통계 조회
-export const getMerchantDashboardStats = async (merchantBrand: string): Promise<DashboardStats | null> => {
+export const getMerchantDashboardStats = async (brandId: number): Promise<DashboardStats | null> => {
   try {
     const today = new Date().toISOString().split('T')[0]
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]
@@ -50,7 +52,7 @@ export const getMerchantDashboardStats = async (merchantBrand: string): Promise<
 
     // 브랜드별 필터링 (주문 아이템에서 브랜드 확인)
     const todayMerchantOrders = todayOrdersData?.filter((order: MerchantOrderRow) => 
-      order.items && order.items.some((item: any) => item.brand === merchantBrand)
+      order.items && order.items.some((item: any) => item.brand_id === brandId)
     ) || []
 
     // 2. 어제 주문 수 (변화율 계산용)
@@ -64,14 +66,14 @@ export const getMerchantDashboardStats = async (merchantBrand: string): Promise<
     }
 
     const yesterdayMerchantOrders = yesterdayOrdersData?.filter((order: MerchantOrderRow) => 
-      order.items && order.items.some((item: any) => item.brand === merchantBrand)
+      order.items && order.items.some((item: any) => item.brand_id === brandId)
     ) || []
 
     // 3. 총 상품 수
     const { data: productsData, error: productsError } = await supabase
       .from('products')
       .select('id')
-      .eq('brand', merchantBrand)
+      .eq('brand_id', brandId)
 
     if (productsError) {
       console.error('상품 조회 오류:', productsError)
@@ -89,7 +91,7 @@ export const getMerchantDashboardStats = async (merchantBrand: string): Promise<
     // 브랜드별 고객 필터링
     const merchantCustomers = new Set()
     customersData?.forEach((order: MerchantOrderRow) => {
-      if (order.items && order.items.some((item: any) => item.brand === merchantBrand)) {
+      if (order.items && order.items.some((item: any) => item.brand_id === brandId)) {
         merchantCustomers.add(order.user_id)
       }
     })
@@ -99,7 +101,7 @@ export const getMerchantDashboardStats = async (merchantBrand: string): Promise<
     todayMerchantOrders.forEach((order: MerchantOrderRow) => {
       if (order.items) {
         order.items.forEach((item: any) => {
-          if (item.brand === merchantBrand) {
+          if (item.brand_id === brandId) {
             todayRevenue += item.price * item.quantity
           }
         })
@@ -111,7 +113,7 @@ export const getMerchantDashboardStats = async (merchantBrand: string): Promise<
     yesterdayMerchantOrders.forEach((order: MerchantOrderRow) => {
       if (order.items) {
         order.items.forEach((item: any) => {
-          if (item.brand === merchantBrand) {
+          if (item.brand_id === brandId) {
             yesterdayRevenue += item.price * item.quantity
           }
         })
@@ -143,7 +145,7 @@ export const getMerchantDashboardStats = async (merchantBrand: string): Promise<
 }
 
 // 입점사별 최근 주문 조회
-export const getMerchantRecentOrders = async (merchantBrand: string, limit: number = 5): Promise<RecentOrder[]> => {
+export const getMerchantRecentOrders = async (brandId: number, limit: number = 5): Promise<RecentOrder[]> => {
   try {
     const { data: ordersData, error } = await supabase
       .rpc('merchant_orders')
@@ -160,9 +162,9 @@ export const getMerchantRecentOrders = async (merchantBrand: string, limit: numb
     const merchantOrders: RecentOrder[] = []
     
     for (const order of ordersData || []) {
-      if (order.items && order.items.some((item: any) => item.brand === merchantBrand)) {
+      if (order.items && order.items.some((item: any) => item.brand_id === brandId)) {
         // 해당 브랜드의 첫 번째 상품명 가져오기
-        const merchantItem = order.items.find((item: any) => item.brand === merchantBrand)
+        const merchantItem = order.items.find((item: any) => item.brand_id === brandId)
         
         merchantOrders.push({
           id: order.id,
@@ -186,12 +188,12 @@ export const getMerchantRecentOrders = async (merchantBrand: string, limit: numb
 }
 
 // 입점사별 인기 상품 조회
-export const getMerchantTopProducts = async (merchantBrand: string, limit: number = 5): Promise<TopProduct[]> => {
+export const getMerchantTopProducts = async (brandId: number, limit: number = 5): Promise<TopProduct[]> => {
   try {
     const { data: productsData, error } = await supabase
       .from('products')
       .select('name, sales, price, brand')
-      .eq('brand', merchantBrand)
+      .eq('brand_id', brandId)
       .order('sales', { ascending: false })
       .limit(limit)
 
@@ -213,35 +215,13 @@ export const getMerchantTopProducts = async (merchantBrand: string, limit: numbe
   }
 }
 
-// 현재 로그인한 관리자의 브랜드명 조회
-export const getCurrentMerchantBrand = async (): Promise<string | null> => {
-  try {
-    // 현재 로그인한 사용자 정보 가져오기
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      console.error('로그인된 사용자가 없습니다.')
-      return null
-    }
-
-    // brand_admins 테이블에서 브랜드 정보 조회
-    const { data: brandData, error } = await supabase
-      .from('brand_admins')
-      .select('name')
-      .eq('email', user.email)
-      .single()
-
-    if (error) {
-      console.error('브랜드 정보 조회 오류:', error)
-      return null
-    }
-
-    return brandData?.name || null
-
-  } catch (error) {
-    console.error('현재 브랜드 조회 중 오류 발생:', error)
-    return null
-  }
+// 현재 로그인한 입점사의 브랜드 (번호 + 표시용 이름)
+// 이전에는 로그인 이메일 = 입점사 대표 이메일인 행을 찾았다 (문자열로 정체를 맞추는 방식, 이메일이 다르면 실패)
+// 이제 권한의 단일 출처인 user_roles → brand_admins 연결(get_my_role)을 쓴다. 계약 중이 아니면 null
+export const getCurrentMerchantBrand = async (): Promise<{ id: number; name: string } | null> => {
+  const { role, brandId, brandName } = await getMyRole()
+  if (role !== 'merchant' || brandId == null || !brandName) return null
+  return { id: brandId, name: brandName }
 }
 
 // 숫자 포맷팅 함수

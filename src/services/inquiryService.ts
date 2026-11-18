@@ -308,10 +308,11 @@ export const getAllInquiries = async (): Promise<Inquiry[]> => {
 }
 
 // 브랜드별 문의 조회 (입점사용)
-export const getInquiriesByBrand = async (brandName: string): Promise<Inquiry[]> => {
+// 담당 브랜드는 서버가 상품에서 정한 brand_id로 거른다 (0010). product_brand는 표시용 이름
+export const getInquiriesByBrand = async (brandId: number): Promise<Inquiry[]> => {
   try {
-    console.log('🏷️ 브랜드별 문의 조회:', brandName)
-    
+    console.log('🏷️ 브랜드별 문의 조회:', brandId)
+
     const { data, error } = await supabase
       .from('inquiries')
       .select(`
@@ -322,7 +323,7 @@ export const getInquiriesByBrand = async (brandName: string): Promise<Inquiry[]>
           phone
         )
       `)
-      .eq('product_brand', brandName)
+      .eq('brand_id', brandId)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -330,7 +331,7 @@ export const getInquiriesByBrand = async (brandName: string): Promise<Inquiry[]>
       return []
     }
 
-    console.log(`✅ 브랜드 ${brandName} 문의 조회 성공: ${data?.length || 0}건`)
+    console.log(`✅ 브랜드 ${brandId} 문의 조회 성공: ${data?.length || 0}건`)
     return data || []
   } catch (error) {
     console.error('브랜드별 문의 조회 중 예외 발생:', error)

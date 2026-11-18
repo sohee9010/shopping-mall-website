@@ -363,7 +363,7 @@ const Tenants = () => {
         .update({ 
           status: 'hidden'
         })
-        .eq('brand', tenantToTerminate.companyName);
+        .eq('brand_id', tenantToTerminate.id); // 브랜드 번호 기준 (0010): 이름이 바뀌어도 그 브랜드 상품을 빠짐없이 숨긴다
 
       if (productError) {
         console.warn('상품 상태 업데이트 실패:', productError);
