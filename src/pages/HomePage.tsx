@@ -22,6 +22,7 @@ const HomePage: React.FC = () => (
         tag={floor.tag}
         title={floor.title}
         brandName={floor.name}
+        brandId={floor.brandId}
         summary={floor.summary}
         image={floor.image}
         reverse={i % 2 === 1}

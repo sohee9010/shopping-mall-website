@@ -81,12 +81,28 @@ export const WEEKLY_FOCUS = {
 }
 
 // 층별 룩북 (가상 입점 브랜드 화보 + 그 층 인기 상품). 화보는 세로형으로 받는다
+// brandId: 화보를 누르면 그 브랜드 페이지로 (D-5)
 export const BRAND_AVENUE = [
-  { floorId: 1, name: 'LUNELLE', tag: 'WOMEN', title: "The Women's Floor", summary: '캐시미어와 울로 완성하는 컨템포러리 니트·코트', image: banner('brand-lunelle', 900, 1200) },
-  { floorId: 2, name: 'GREYMONT', tag: 'MEN', title: "The Men's Floor", summary: '오래 입는 클래식, 셔츠와 테일러드 아우터', image: banner('brand-greymont', 900, 1200) },
-  { floorId: 3, name: 'ATELIER VERO', tag: 'ACCESSORIES', title: 'Accessories', summary: '장인의 손끝에서 완성되는 가죽 가방과 슈즈', image: banner('brand-atelier-vero', 900, 1200) },
-  { floorId: 4, name: 'NOCTURNE', tag: 'BEAUTY', title: 'Beauty Hall', summary: '밤의 공기를 담은 향수와 메이크업', image: banner('brand-nocturne', 900, 1200) },
+  { floorId: 1, brandId: 1, name: 'LUNELLE', tag: 'WOMEN', title: "The Women's Floor", summary: '캐시미어와 울로 완성하는 컨템포러리 니트·코트', image: banner('brand-lunelle', 900, 1200) },
+  { floorId: 2, brandId: 3, name: 'GREYMONT', tag: 'MEN', title: "The Men's Floor", summary: '오래 입는 클래식, 셔츠와 테일러드 아우터', image: banner('brand-greymont', 900, 1200) },
+  { floorId: 3, brandId: 5, name: 'ATELIER VERO', tag: 'ACCESSORIES', title: 'Accessories', summary: '장인의 손끝에서 완성되는 가죽 가방과 슈즈', image: banner('brand-atelier-vero', 900, 1200) },
+  { floorId: 4, brandId: 8, name: 'NOCTURNE', tag: 'BEAUTY', title: 'Beauty Hall', summary: '밤의 공기를 담은 향수와 메이크업', image: banner('brand-nocturne', 900, 1200) },
 ]
+
+// 입점 브랜드 소개 (브랜드 페이지 /brand/:id, D-5)
+// 키는 brand_admins.id — 이름은 바뀔 수 있으므로 번호로 연결한다 (P20과 같은 원칙)
+// 사업자번호·이메일이 있는 brand_admins는 비로그인 사용자가 읽을 수 없어, 공개 소개 문구·화보는 여기서 관리한다
+const brandHero = (key: keyof typeof bannerImages) => ({ hero: banner(key, 1920, 800), heroMobile: banner(key, 828, 1000) })
+export const BRANDS: Record<number, { floor: string; summary: string; story: string; hero: string; heroMobile: string }> = {
+  1: { floor: 'WOMEN', summary: '캐시미어와 울로 완성하는 컨템포러리 니트·코트', story: '좋은 소재가 오래 남는다는 믿음으로, 계절을 건너 입는 니트와 코트를 만듭니다.', ...brandHero('brand-lunelle-hero') }, // 룩북용 세로 화보는 가로로 자르면 얼굴 일부만 남아 가로 사진을 따로 둔다
+  2: { floor: 'WOMEN', summary: '실크와 코튼으로 그리는 여성복의 일상', story: '블라우스와 원피스, 하루의 장면마다 어울리는 부드러운 실루엣을 제안합니다.', ...brandHero('brand-sable') },
+  3: { floor: 'MEN', summary: '오래 입는 클래식, 셔츠와 테일러드 아우터', story: '유행보다 오래가는 비율과 소재로, 남성 옷장의 기본을 다시 짓습니다.', ...brandHero('brand-greymont') },
+  4: { floor: 'MEN', summary: '편안함 위에 쌓는 남성 캐주얼', story: '니트와 데님, 티셔츠처럼 매일 손이 가는 옷을 단단한 만듦새로 완성합니다.', ...brandHero('brand-offbeat') },
+  5: { floor: 'ACCESSORIES', summary: '장인의 손끝에서 완성되는 가죽 가방과 슈즈', story: '손으로 다듬은 가죽의 결을 살린 가방과 슈즈, 쓸수록 나만의 모양이 됩니다.', ...brandHero('brand-atelier-vero') },
+  6: { floor: 'ACCESSORIES', summary: '일상에 더하는 작은 빛, 주얼리와 시계', story: '14K 체인부터 미니멀 워치까지, 매일 하기 좋은 섬세한 디자인을 만듭니다.', ...brandHero('brand-orbe') },
+  7: { floor: 'BEAUTY', summary: '피부 장벽을 생각하는 스킨케어', story: '꼭 필요한 성분만 담아, 피부가 스스로 균형을 찾도록 돕는 데일리 스킨케어.', ...brandHero('brand-dewlab') },
+  8: { floor: 'BEAUTY', summary: '밤의 공기를 담은 향수와 메이크업', story: '해가 진 뒤의 분위기를 닮은 향과 컬러, 하루의 마지막 장면을 위한 뷰티.', ...brandHero('brand-nocturne') },
+}
 
 // 컬러 스와치 칩 색 (D-4). 키는 DB 옵션 값(product_variants.option1)과 같아야 한다.
 // 칩은 '색 견본'이라 사진과 별개로 항상 보여 주고, 사진 전환은 product_option_images에 등록된 색만 한다

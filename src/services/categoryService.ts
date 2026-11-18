@@ -517,3 +517,18 @@ const getAllSubcategoryIdsFallback = async (parentId: number): Promise<number[]>
         return []
     }
 }
+// 브랜드 페이지 상품 (D-5): 그 브랜드의 공개 상품(판매중·품절)을 판매량 순으로
+// brand_id로 찾는다 — 이름은 바뀔 수 있으므로 번호가 기준 (P20)
+export const getBrandProducts = async (brandId: number): Promise<Product[]> => {
+    const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('brand_id', brandId)
+        .in('status', ['forsale', 'soldout'])
+        .order('sales', { ascending: false })
+    if (error) {
+        console.error('브랜드 상품 조회 오류:', error)
+        return []
+    }
+    return (data ?? []).map((product) => ({ ...product, image: product.image_urls?.[0] ?? '' }))
+}
