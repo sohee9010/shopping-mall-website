@@ -975,15 +975,6 @@
     ]
   },
   {
-    "id": "Imt-VGZ0ypw",
-    "author": "Muhamed Alaa",
-    "authorUrl": "https://unsplash.com/@muhmedelbank?utm_source=etage_portfolio&utm_medium=referral",
-    "photoUrl": "https://unsplash.com/photos/a-bearded-man-in-dark-clothes-sits-on-a-chair-Imt-VGZ0ypw?utm_source=etage_portfolio&utm_medium=referral",
-    "usedFor": [
-      "배너: hero-2"
-    ]
-  },
-  {
     "id": "7QjF0V8NOms",
     "author": "S O C I A L . C U T",
     "authorUrl": "https://unsplash.com/@socialcut?utm_source=etage_portfolio&utm_medium=referral",
@@ -999,15 +990,6 @@
     "photoUrl": "https://unsplash.com/photos/skincare-cream-serum-eucalyptus-and-fluffy-elements-on-marble-E30Dik5cHO8?utm_source=etage_portfolio&utm_medium=referral",
     "usedFor": [
       "배너: hero-4"
-    ]
-  },
-  {
-    "id": "HqQ-uE4iHwo",
-    "author": "Amanda D'souza",
-    "authorUrl": "https://unsplash.com/@amanda_dsouza?utm_source=etage_portfolio&utm_medium=referral",
-    "photoUrl": "https://unsplash.com/photos/modern-clothing-boutique-with-mannequins-HqQ-uE4iHwo?utm_source=etage_portfolio&utm_medium=referral",
-    "usedFor": [
-      "배너: hero-5"
     ]
   },
   {
@@ -1098,6 +1080,24 @@
     "photoUrl": "https://unsplash.com/photos/woman-in-a-beige-coat-by-the-water-oMVzDzJ-8Wk?utm_source=etage_portfolio&utm_medium=referral",
     "usedFor": [
       "배너: hero-1"
+    ]
+  },
+  {
+    "id": "2XgYKz85fYk",
+    "author": "Amir Arsalan Shamsabadi",
+    "authorUrl": "https://unsplash.com/@amirarsalan93?utm_source=etage_portfolio&utm_medium=referral",
+    "photoUrl": "https://unsplash.com/photos/stylish-man-in-coat-and-glasses-against-a-modern-building-2XgYKz85fYk?utm_source=etage_portfolio&utm_medium=referral",
+    "usedFor": [
+      "배너: hero-2"
+    ]
+  },
+  {
+    "id": "Urm4W090XFA",
+    "author": "Zhuojun Yu",
+    "authorUrl": "https://unsplash.com/@heebase?utm_source=etage_portfolio&utm_medium=referral",
+    "photoUrl": "https://unsplash.com/photos/a-long-white-hallway-with-white-walls-and-shelves-Urm4W090XFA?utm_source=etage_portfolio&utm_medium=referral",
+    "usedFor": [
+      "배너: hero-5"
     ]
   }
 ]
