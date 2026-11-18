@@ -87,3 +87,15 @@ export const BRAND_AVENUE = [
   { floorId: 3, name: 'ATELIER VERO', tag: 'ACCESSORIES', title: 'Accessories', summary: '장인의 손끝에서 완성되는 가죽 가방과 슈즈', image: banner('brand-atelier-vero', 900, 1200) },
   { floorId: 4, name: 'NOCTURNE', tag: 'BEAUTY', title: 'Beauty Hall', summary: '밤의 공기를 담은 향수와 메이크업', image: banner('brand-nocturne', 900, 1200) },
 ]
+
+// 컬러 스와치 칩 색 (D-4). 키는 DB 옵션 값(product_variants.option1)과 같아야 한다.
+// 칩은 '색 견본'이라 사진과 별개로 항상 보여 주고, 사진 전환은 product_option_images에 등록된 색만 한다
+export const SWATCH_COLORS: Record<string, string> = {
+  차콜: '#3d3d3f', 카멜: '#b4885b', 그레이: '#a3a3a3', 크림: '#efe7d6',
+  블랙: '#151515', 아이보리: '#f4eee2', 네이비: '#1f2a44', 베이지: '#d9c8ab',
+  옐로골드: '#d4af5a', 화이트골드: '#dcdcd8',
+  '01 로지': '#c56f80', '02 코랄': '#e07c62', '03 브릭': '#9c3f31',
+  '21호': '#f0d5bb', '23호': '#e2bd9b',
+}
+// 스와치로 보여 줄 옵션 축 이름 (사이즈·용량은 색이 아니므로 제외)
+export const SWATCH_OPTION_NAMES = ['색상', '호수']

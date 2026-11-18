@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { getTopProductsInFloor } from '../../services/categoryService'
 import { Product } from '../../types'
 import ProductCard, { ProductGrid, ProductGridSkeleton } from '../product/ProductCard'
+import { useSwatches } from '../../hooks/useSwatches'
 import SectionHeader from './SectionHeader'
 import Reveal from '../motion/Reveal'
 import { useParallax } from '../../hooks/useParallax'
@@ -21,6 +22,7 @@ interface FloorLookbookProps {
 
 const FloorLookbook: React.FC<FloorLookbookProps> = ({ floorId, tag, title, brandName, summary, image, reverse }) => {
   const [products, setProducts] = useState<Product[] | null>(null)
+  const swatches = useSwatches((products ?? []).map((p) => p.id)) // 이 층 상품 4개의 색상 칩을 한 번에
   const imageRef = useParallax<HTMLImageElement>()
 
   useEffect(() => {
@@ -57,7 +59,7 @@ const FloorLookbook: React.FC<FloorLookbookProps> = ({ floorId, tag, title, bran
             <p className="py-20 text-center text-sm text-etage-muted">이 층에 판매 중인 상품이 없습니다.</p>
           ) : (
             <ProductGrid columns="2">
-              {products.map((p) => <ProductCard key={p.id} product={p} />)}
+              {products.map((p) => <ProductCard key={p.id} product={p} swatches={swatches[p.id]} />)}
             </ProductGrid>
           )}
         </Reveal>

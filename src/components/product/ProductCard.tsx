@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { formatKRW } from '../../utils/format'
 import { useWishlistContext } from '../../context/WishlistContext'
 import QuickViewModal from './QuickViewModal'
+import { Swatch } from '../../services/swatchService'
 
 // 쇼핑몰의 모든 상품 목록(홈·카테고리·검색·찜·최근 본 상품)이 쓰는 단일 상품 카드.
 // 이전에는 6곳이 카드를 각자 구현해 모양·동작이 제각각이었다
@@ -26,7 +27,44 @@ interface ProductCardProps {
   cornerAction?: { label: string; onClick: () => void }
   /** 첫 화면에 바로 보이는 카드는 지연 로딩하지 않는다 (가장 큰 요소 표시 시간, LCP) */
   eager?: boolean
+  /** 컬러 스와치 (목록 단위로 한 번에 조회해 넘긴다 — useSwatches) */
+  swatches?: Swatch[]
 }
+
+// 컬러 스와치 (D-4): 색 칩에 마우스를 올리거나 누르면 그 색 사진으로 바꿔 보여 준다.
+// 사진이 등록되지 않은 색은 칩만 표시하고 사진은 바꾸지 않는다 (고른 색과 다른 사진 금지)
+const MAX_SWATCHES = 5
+const SwatchRow: React.FC<{
+  productName: string
+  swatches: Swatch[]
+  selected: string | null
+  onPreview: (value: string | null) => void
+  onSelect: (value: string) => void
+}> = ({ productName, swatches, selected, onPreview, onSelect }) => (
+  <div className="mt-2.5 flex items-center gap-1.5" onMouseLeave={() => onPreview(null)}>
+    {swatches.slice(0, MAX_SWATCHES).map((s) => (
+      <button
+        key={s.value}
+        type="button"
+        aria-label={`${productName} ${s.value}${s.inStock ? '' : ' (품절)'}`}
+        aria-pressed={selected === s.value}
+        title={`${s.value}${s.inStock ? '' : ' · 품절'}`}
+        onMouseEnter={() => onPreview(s.value)}
+        onFocus={() => onPreview(s.value)}
+        onBlur={() => onPreview(null)}
+        onClick={() => onSelect(s.value)}
+        className={`relative h-4 w-4 rounded-full border transition-shadow ${
+          selected === s.value ? 'border-etage-ink ring-1 ring-etage-ink ring-offset-2' : 'border-black/15 hover:ring-1 hover:ring-etage-muted hover:ring-offset-1'
+        }`}
+        style={{ backgroundColor: s.hex }}
+      >
+        {/* 품절 색: 대각선 */}
+        {!s.inStock && <span aria-hidden="true" className="absolute left-1/2 top-[-2px] h-[20px] w-px -translate-x-1/2 rotate-45 bg-etage-ink/70" />}
+      </button>
+    ))}
+    {swatches.length > MAX_SWATCHES && <span className="text-[11px] text-etage-muted">+{swatches.length - MAX_SWATCHES}</span>}
+  </div>
+)
 
 // 찜 하트 (D-3). 누르는 즉시 채워지고(낙관적 업데이트), 저장이 실패하면 원래대로 돌아온다 — WishlistContext 참고
 const HeartButton: React.FC<{ product: ProductCardData }> = ({ product }) => {
@@ -57,10 +95,15 @@ const HeartButton: React.FC<{ product: ProductCardData }> = ({ product }) => {
   )
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product, cornerAction, eager = false }) => {
-  const [imageFailed, setImageFailed] = useState(false)
+const ProductCard: React.FC<ProductCardProps> = ({ product, cornerAction, eager = false, swatches }) => {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null) // 실패한 주소만 기억 (다른 색 사진은 다시 시도)
   const [quickViewOpen, setQuickViewOpen] = useState(false)
-  const showImage = !!product.image && !imageFailed
+  const [selectedColor, setSelectedColor] = useState<string | null>(null)
+  const [previewColor, setPreviewColor] = useState<string | null>(null)
+  // 보여 줄 사진: 미리보기(마우스 올림) > 선택한 색 > 기본 사진. 사진이 없는 색이면 기본 사진 유지
+  const colorImage = swatches?.find((s) => s.value === (previewColor ?? selectedColor))?.image
+  const imageSrc = colorImage ?? product.image
+  const showImage = !!imageSrc && failedSrc !== imageSrc
 
   return (
     <article className="group relative">
@@ -71,13 +114,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, cornerAction, eager 
         <div className="relative aspect-product overflow-hidden bg-etage-canvas">
           {showImage ? (
             <img
-              src={product.image ?? undefined}
+              src={imageSrc ?? undefined}
               alt={product.name}
               width={600}
               height={800}
               loading={eager ? 'eager' : 'lazy'}
               decoding="async"
-              onError={() => setImageFailed(true)}
+              onError={() => setFailedSrc(imageSrc ?? null)}
               className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
             />
           ) : (
@@ -94,6 +137,16 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, cornerAction, eager 
           <p className="mt-1.5 text-sm font-semibold text-etage-ink">{formatKRW(product.price)}</p>
         </div>
       </Link>
+      {/* 스와치는 링크 밖 (버튼을 링크 안에 넣으면 누를 때 상세로 이동해 버린다) */}
+      {swatches && swatches.length > 1 && (
+        <SwatchRow
+          productName={product.name}
+          swatches={swatches}
+          selected={selectedColor}
+          onPreview={setPreviewColor}
+          onSelect={(v) => setSelectedColor((cur) => (cur === v ? null : v))}
+        />
+      )}
       {/* Quick View: 링크 안에 버튼을 넣을 수 없어 이미지 위에 같은 크기의 겹침 층을 두고 그 안에 둔다 */}
       <div className="pointer-events-none absolute inset-x-0 top-0 aspect-product overflow-hidden">
         {/* 데스크톱: 마우스를 올리거나 키보드 초점이 오면 이미지 아래에서 올라오는 띠 */}

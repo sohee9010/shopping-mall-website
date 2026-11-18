@@ -4,12 +4,15 @@ import { getProductsByLevel3Category, getProductsByParentCategory, getCategoryBy
 import { supabase } from '../services/supabase'
 import { Product } from '../types'
 import ProductCard, { ProductGrid, ProductGridSkeleton } from '../components/product/ProductCard'
+import { useSwatches } from '../hooks/useSwatches'
 
 const CategoryPage: React.FC = () => {
     const { categoryId, category } = useParams<{ categoryId: string; category: string }>()
     const actualCategoryId = categoryId || category
     const [products, setProducts] = useState<Product[]>([])
     const [allProducts, setAllProducts] = useState<Product[]>([]) // 모든 상품 저장
+    // 컬러 스와치: 하위 카테고리 필터를 바꿔도 다시 조회하지 않도록 전체 상품 기준으로 한 번에
+    const swatches = useSwatches(allProducts.map((p) => p.id))
     const [categoryName, setCategoryName] = useState<string>('')
     const [subcategories, setSubcategories] = useState<any[]>([])
     const [selectedSubcategory, setSelectedSubcategory] = useState<number | null>(null)
@@ -211,7 +214,7 @@ const CategoryPage: React.FC = () => {
                     <ProductGrid>
                         {products.map((product, index) => (
                             // 모바일·데스크톱 첫 줄 카드는 바로 보이므로 지연 로딩하지 않는다
-                            <ProductCard key={product.id} product={product} eager={index < 4} />
+                            <ProductCard key={product.id} product={product} eager={index < 4} swatches={swatches[product.id]} />
                         ))}
                     </ProductGrid>
                 ) : (

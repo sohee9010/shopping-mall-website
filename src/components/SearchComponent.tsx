@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import ProductCard, { ProductGrid } from './product/ProductCard'
+import { useSwatches } from '../hooks/useSwatches'
 import { 
   getSearchSuggestions, 
   getPopularSearchTerms, 
@@ -40,6 +41,7 @@ const SearchComponent: React.FC = () => {
     sortOrder: 'desc'
   })
   const [searchResults, setSearchResults] = useState<Product[]>([])
+  const swatches = useSwatches(searchResults.map((p) => p.id)) // 검색 결과 전체 색상 칩을 한 번에
   const [isLoading, setIsLoading] = useState(false)
   const [resultCount, setResultCount] = useState(0)
   const [searchStats, setSearchStats] = useState({ totalSearches: 0, recentSearches: 0 })
@@ -427,7 +429,7 @@ const SearchComponent: React.FC = () => {
             // 옵션 상품에서는 '고른 옵션의 재고'와 다르고, 판매량은 운영용 정보라 공통 카드에서는 표시하지 않는다
             <ProductGrid>
               {searchResults.map((product, index) => (
-                <ProductCard key={product.id} product={product} eager={index < 4} />
+                <ProductCard key={product.id} product={product} eager={index < 4} swatches={swatches[product.id]} />
               ))}
             </ProductGrid>
           ) : (
