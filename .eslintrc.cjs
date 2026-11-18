@@ -11,8 +11,8 @@ module.exports = {
   ignorePatterns: [
     'dist',
     '.eslintrc.cjs',
-    // TODO(고도화 2-5단계): 관리자 화면 재작성 시 제거. 재작성 전까지 린트 대상에서 임시 제외
-    'src/admin',
+    // TODO(고도화 2-5단계): 관리자 화면 재작성 중. 아직 원본 JS인 화면만 임시 제외하고, TS로 다시 쓴 파일은 검사한다
+    'src/admin/**/*.js',
   ],
   parser: '@typescript-eslint/parser',
   plugins: ['react-refresh'],
