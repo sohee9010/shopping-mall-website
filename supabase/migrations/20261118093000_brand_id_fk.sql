@@ -235,7 +235,7 @@ language plpgsql security definer set search_path = ''
 as $$
 begin
   update public.products            set brand = new.name         where brand_id = new.id;
-  update public.inquiries           set product_brand = new.name where brand_id = new.id and product_id is null;
+  update public.inquiries           set product_brand = new.name where brand_id = new.id;
   update public.brand_sales_targets set brand_name = new.name    where brand_id = new.id;
   return null;
 end;
