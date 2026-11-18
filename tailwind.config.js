@@ -38,10 +38,23 @@ export default {
             transform: 'translateX(0)',
             opacity: '1'
           }
-        }
+        },
+        // 찜 하트를 누른 순간 살짝 커졌다 돌아오는 반응 (D-3)
+        'heart-pop': {
+          '0%': { transform: 'scale(1)' },
+          '40%': { transform: 'scale(1.3)' },
+          '100%': { transform: 'scale(1)' },
+        },
+        // Quick View 모달 등장 (D-3)
+        'modal-in': {
+          '0%': { opacity: '0', transform: 'translateY(12px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
-        'slide-in': 'slide-in 0.3s ease-out'
+        'slide-in': 'slide-in 0.3s ease-out',
+        'heart-pop': 'heart-pop 0.35s ease-out',
+        'modal-in': 'modal-in 0.25s ease-out',
       }
     },
   },
