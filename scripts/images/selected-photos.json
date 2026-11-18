@@ -973,15 +973,6 @@
       "photoUrl": "https://unsplash.com/photos/clear-glass-bottle-on-white-table-iDDGJt3veps",
       "downloadLocation": "https://api.unsplash.com/photos/iDDGJt3veps/download?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8MXx8cGVyZnVtZSUyMGJvdHRsZXxlbnwxfDJ8fHwxNzk0ODk2NTg0fDA"
     },
-    "Imt-VGZ0ypw": {
-      "id": "Imt-VGZ0ypw",
-      "alt": "A bearded man in dark clothes sits on a chair",
-      "raw": "https://images.unsplash.com/photo-1781696855350-b8c1eadb7bec?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8N3x8bWVuc3dlYXIlMjBlZGl0b3JpYWx8ZW58MXwwfHx8MTc5NDg5NjU4NXww&ixlib=rb-4.1.0",
-      "author": "Muhamed Alaa",
-      "authorUrl": "https://unsplash.com/@muhmedelbank",
-      "photoUrl": "https://unsplash.com/photos/a-bearded-man-in-dark-clothes-sits-on-a-chair-Imt-VGZ0ypw",
-      "downloadLocation": "https://api.unsplash.com/photos/Imt-VGZ0ypw/download?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8N3x8bWVuc3dlYXIlMjBlZGl0b3JpYWx8ZW58MXwwfHx8MTc5NDg5NjU4NXww"
-    },
     "7QjF0V8NOms": {
       "id": "7QjF0V8NOms",
       "alt": "person showing pair of brown wicker slip-on slippers",
@@ -999,15 +990,6 @@
       "authorUrl": "https://unsplash.com/@henrydavisonny",
       "photoUrl": "https://unsplash.com/photos/skincare-cream-serum-eucalyptus-and-fluffy-elements-on-marble-E30Dik5cHO8",
       "downloadLocation": "https://api.unsplash.com/photos/E30Dik5cHO8/download?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8NHx8YmVhdXR5JTIwc2tpbmNhcmUlMjBwcm9kdWN0cyUyMGZsYXRsYXl8ZW58MXwwfHx8MTc5NDg5NjU4NXww"
-    },
-    "HqQ-uE4iHwo": {
-      "id": "HqQ-uE4iHwo",
-      "alt": "A 3D render of a modern clothing boutique with mannequins, spherical pendant lights, and a central seating area",
-      "raw": "https://images.unsplash.com/photo-1793172467302-bbe08880b883?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8NXx8Ym91dGlxdWUlMjBjbG90aGluZyUyMHN0b3JlJTIwaW50ZXJpb3J8ZW58MXwwfHx8MTc5NDg5NjU4Nnww&ixlib=rb-4.1.0",
-      "author": "Amanda D'souza",
-      "authorUrl": "https://unsplash.com/@amanda_dsouza",
-      "photoUrl": "https://unsplash.com/photos/modern-clothing-boutique-with-mannequins-HqQ-uE4iHwo",
-      "downloadLocation": "https://api.unsplash.com/photos/HqQ-uE4iHwo/download?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8NXx8Ym91dGlxdWUlMjBjbG90aGluZyUyMHN0b3JlJTIwaW50ZXJpb3J8ZW58MXwwfHx8MTc5NDg5NjU4Nnww"
     },
     "ssnCzNayHC4": {
       "id": "ssnCzNayHC4",
@@ -1098,6 +1080,24 @@
       "authorUrl": "https://unsplash.com/@stadinstudio",
       "photoUrl": "https://unsplash.com/photos/woman-in-a-beige-coat-by-the-water-oMVzDzJ-8Wk",
       "downloadLocation": "https://api.unsplash.com/photos/oMVzDzJ-8Wk/download?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8MTF8fHdvbWFuJTIwd29vbCUyMGNvYXQlMjBhdXR1bW4lMjBlZGl0b3JpYWx8ZW58MXwwfHx8MTc5NDk2NTMxMXww"
+    },
+    "2XgYKz85fYk": {
+      "id": "2XgYKz85fYk",
+      "alt": "Stylish man in coat and glasses against a modern building",
+      "raw": "https://images.unsplash.com/photo-1779206796527-991850aa5f63?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8NHx8bWFuJTIwdGFpbG9yZWQlMjB3b29sJTIwY29hdCUyMGZhc2hpb258ZW58MXwwfHx8MTc5NDk3ODk3NHww&ixlib=rb-4.1.0",
+      "author": "Amir Arsalan Shamsabadi",
+      "authorUrl": "https://unsplash.com/@amirarsalan93",
+      "photoUrl": "https://unsplash.com/photos/stylish-man-in-coat-and-glasses-against-a-modern-building-2XgYKz85fYk",
+      "downloadLocation": "https://api.unsplash.com/photos/2XgYKz85fYk/download?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8NHx8bWFuJTIwdGFpbG9yZWQlMjB3b29sJTIwY29hdCUyMGZhc2hpb258ZW58MXwwfHx8MTc5NDk3ODk3NHww"
+    },
+    "Urm4W090XFA": {
+      "id": "Urm4W090XFA",
+      "alt": "a long white hallway with white walls and shelves",
+      "raw": "https://images.unsplash.com/photo-1687091599228-54c36ac204de?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8NHx8bHV4dXJ5JTIwYm91dGlxdWUlMjBpbnRlcmlvciUyMG1pbmltYWx8ZW58MXwwfHx8MTc5NDk3ODk3NXww&ixlib=rb-4.1.0",
+      "author": "Zhuojun Yu",
+      "authorUrl": "https://unsplash.com/@heebase",
+      "photoUrl": "https://unsplash.com/photos/a-long-white-hallway-with-white-walls-and-shelves-Urm4W090XFA",
+      "downloadLocation": "https://api.unsplash.com/photos/Urm4W090XFA/download?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8NHx8bHV4dXJ5JTIwYm91dGlxdWUlMjBpbnRlcmlvciUyMG1pbmltYWx8ZW58MXwwfHx8MTc5NDk3ODk3NXww"
     }
   },
   "products": {
@@ -1326,10 +1326,10 @@
   },
   "banners": {
     "hero-1": "oMVzDzJ-8Wk",
-    "hero-2": "Imt-VGZ0ypw",
+    "hero-2": "2XgYKz85fYk",
     "hero-3": "7QjF0V8NOms",
     "hero-4": "E30Dik5cHO8",
-    "hero-5": "HqQ-uE4iHwo",
+    "hero-5": "Urm4W090XFA",
     "category-women": "ssnCzNayHC4",
     "category-men": "PFF6kI0HeOs",
     "category-beauty": "g6q3lFAe3kA",
