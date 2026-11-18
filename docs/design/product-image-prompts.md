@@ -65,11 +65,11 @@ Recreate exactly the same image — same item shape, same angle, same lighting, 
 
 1. 바탕 화면에 `etage-images` 폴더를 만들고, 아래 표의 **파일 이름 그대로** 저장한다 (예: `6-charcoal.png`).
 2. 저장소 안에는 넣지 않는다 (원본은 크다). 받으면 웹용(webp, 크기별)으로 변환해 반영한다.
-3. 먼저 **시범 8개(15장)** 만 만든다 → 화면에서 확인 → 기준을 다듬은 뒤 나머지를 만든다.
+3. 먼저 **시범 9개(16장)** 만 만든다 → 화면에서 확인 → 기준을 다듬은 뒤 나머지를 만든다.
 
-## 시범 8개 — 바로 붙여 넣는 프롬프트
+## 시범 9개 — 바로 붙여 넣는 프롬프트
 
-시범 상품: 니트·코트·남성 재킷(의류 3), 숄더백·로퍼·네크리스(잡화 3), 세럼·립스틱(뷰티 2). 색상별 이미지가 있는 상품 위주로 골라 스와치 동작까지 확인한다.
+시범 상품: 니트·코트·남성 재킷(의류 3), 숄더백·로퍼·네크리스(잡화 3), 토너·세럼·립스틱(뷰티 3). 토너(46)는 지금 사진에 실존 브랜드 로고·문구가 보여 가장 먼저 교체한다. 색상별 이미지가 있는 상품 위주로 골라 스와치 동작까지 확인한다.
 
 **6-charcoal.png** — LUNELLE 캐시미어 라운드넥 니트
 ```
@@ -105,6 +105,11 @@ A pair of brown leather penny loafers, studio still life, three-quarter view, ce
 Fine delicate 14k chain necklace in 14k yellow gold, laid in a soft curve, studio still life, top-down view, centered on a seamless plain warm light gray background (#ECE9E4), soft diffused light, gentle contact shadow, generous margin around the object, no text, no logo, no engraving, no brand marks, photorealistic, vertical 3:4
 ```
 **42-whitegold.png** → '색만 바꾸기', 색: `14k white gold`
+
+**46-default.png** — DEWLAB 약산성 밸런싱 토너 (지금 사진에 실존 브랜드 로고가 보여 우선 교체)
+```
+Frosted glass toner bottle 200ml with a completely blank label, placed on a raw travertine stone block, warm beige plaster wall behind, soft natural window light from the left with gentle shadows, calm minimal composition, unbranded minimal packaging, no text, no logo, editorial product photography, photorealistic, vertical 3:4
+```
 
 **48-default.png** — DEWLAB 비타민C 브라이트닝 세럼
 ```
@@ -170,7 +175,7 @@ Matte lipstick in a minimal black metal case with the cap off and the bullet vis
 |  | 43 | ORBE 진주 드롭 이어링 | B 잡화 | pearl drop earrings on a 14k hook | 14k yellow gold / 14k white gold | 43-yellowgold.png<br>43-whitegold.png |
 |  | 44 | ORBE 클래식 레더 스트랩 워치 | B 잡화 | minimal wristwatch with a brown leather strap, plain white dial without text | — | 44-default.png |
 |  | 45 | ORBE 미니멀 메탈 브레이슬릿 워치 | B 잡화 | minimal wristwatch with a slim metal bracelet, plain dial without text | — | 45-default.png |
-|  | 46 | DEWLAB 약산성 밸런싱 토너 200ml | C 뷰티 | frosted glass toner bottle 200ml with blank label | — | 46-default.png |
+| ★ | 46 | DEWLAB 약산성 밸런싱 토너 200ml | C 뷰티 | frosted glass toner bottle 200ml with blank label | — | 46-default.png |
 |  | 47 | DEWLAB 히알루론 수분 토너 200ml | C 뷰티 | clear glass toner bottle 200ml with blank label | — | 47-default.png |
 | ★ | 48 | DEWLAB 비타민C 브라이트닝 세럼 30ml | C 뷰티 | clear glass dropper serum bottle 30ml with blank label | — | 48-default.png |
 |  | 49 | DEWLAB 펩타이드 리페어 세럼 30ml | C 뷰티 | frosted glass dropper serum bottle 30ml with blank label | — | 49-default.png |
