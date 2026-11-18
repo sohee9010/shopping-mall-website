@@ -10,7 +10,7 @@ import type { AppRole } from '../services/roleService'
 
 import HQDashboard from './hq/pages/HQDashboard'
 import Tenants from './hq/pages/Tenants'
-import ProductManagement from './hq/pages/ProductManagement'
+import ProductReview from './hq/pages/ProductReview'
 import CustomerServiceHQ from './hq/pages/CustomerService'
 import DashboardMerchant from './merchant/pages/DashboardMerchant'
 import Products from './merchant/pages/Products'
@@ -33,7 +33,7 @@ export interface AdminPage {
 const HQ_PAGES: AdminPage[] = [
   { path: '', label: '대시보드', element: HQDashboard, icon: Home },
   { path: 'tenants', label: '입점사 관리', element: Tenants, icon: Building2 },
-  { path: 'product-management', label: '상품 검수', element: ProductManagement, icon: Package },
+  { path: 'product-management', label: '상품 검수', element: ProductReview, icon: Package },
   { path: 'orders', label: '주문 관리', element: Orders, icon: ShoppingCart },
   { path: 'customer-service', label: '고객 문의', element: CustomerServiceHQ, icon: MessageSquare },
   { path: 'notice', label: '공지사항', element: NoticeHQ },
