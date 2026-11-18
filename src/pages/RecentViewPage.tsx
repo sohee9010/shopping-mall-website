@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import ProductCard, { ProductGrid } from '../components/product/ProductCard'
+import { useSwatches } from '../hooks/useSwatches'
 import { useRecentViewContext } from '../context/RecentViewContext'
 import { useUser } from '../context/UserContext'
 import Sidebar from '../components/Sidebar'
@@ -10,6 +11,7 @@ const RecentViewPage: React.FC = () => {
   const [showUserInfoModal, setShowUserInfoModal] = useState(false)
   const [user, setUser] = useState<any>(null)
   const { recentItems, removeFromRecent, getRecentCount } = useRecentViewContext()
+  const swatches = useSwatches(recentItems.map((p) => p.id))
   const { currentUser } = useUser()
 
   useEffect(() => {
@@ -100,6 +102,7 @@ const RecentViewPage: React.FC = () => {
                   <ProductCard
                     key={item.id}
                     product={item}
+                    swatches={swatches[item.id]}
                     cornerAction={{ label: `${item.name} 최근 본 상품에서 제거`, onClick: () => removeFromRecent(item.id) }}
                   />
                 ))}

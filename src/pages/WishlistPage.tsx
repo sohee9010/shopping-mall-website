@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import ProductCard, { ProductGrid } from '../components/product/ProductCard'
+import { useSwatches } from '../hooks/useSwatches'
 import { useWishlistContext } from '../context/WishlistContext'
 import { useUser } from '../context/UserContext'
 import Sidebar from '../components/Sidebar'
@@ -11,6 +12,7 @@ const WishlistPage: React.FC = () => {
   const [showUserInfoModal, setShowUserInfoModal] = useState(false)
   const [user, setUser] = useState<any>(null)
   const { wishlistItems, getWishlistCount, clearWishlist } = useWishlistContext()
+  const swatches = useSwatches(wishlistItems.map((p) => p.id))
   const { currentUser } = useUser()
 
   useEffect(() => {
@@ -163,7 +165,7 @@ const WishlistPage: React.FC = () => {
               <ProductGrid>
                 {/* 찜 해제는 카드의 하트 버튼으로 (별도 × 버튼과 기능이 겹쳐 제거) */}
                 {wishlistItems.map((item) => (
-                  <ProductCard key={item.id} product={item} />
+                  <ProductCard key={item.id} product={item} swatches={swatches[item.id]} />
                 ))}
               </ProductGrid>
             )}
