@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { SITE } from '../config/site'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { MessageSquare } from 'lucide-react'
+import Icon from '../components/Icon'
 import { useCouponContext } from '../context/CouponContext'
 import UserInfoModal from '../components/UserInfoModal'
 import { getUserOrders, Order, cancelOrder, requestReturn, orderItemOptionText } from '../services/orderService'
@@ -849,7 +850,7 @@ const MyPage: React.FC = () => {
                                                             onClick={() => handleInquiryClick(order)}
                                                             className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 flex items-center gap-1"
                                                         >
-                                                            <MessageSquare size={12} />
+                                                            <Icon as={MessageSquare} className="h-3 w-3" />
                                                             상품문의
                                                         </button>
                                                         {order.status === '결제완료' && (

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useSearchParams, Link, useNavigate } from 'react-router-dom'
-import { FiXCircle, FiHome, FiRefreshCw } from 'react-icons/fi'
+import { CircleX, House, RefreshCw } from 'lucide-react'
+import Icon from '../components/Icon'
 import { getRedirectParam } from '../utils/redirectParams'
 import { cancelPendingOrder } from '../services/orderService'
 
@@ -59,7 +60,7 @@ const PaymentFailPage: React.FC = () => {
       <div className="max-w-2xl mx-auto px-6">
         <div className="bg-white rounded-lg shadow-sm p-12 text-center">
           <div className="text-red-500 mb-8">
-            <FiXCircle size={64} className="mx-auto" />
+            <Icon as={CircleX} className="h-16 w-16 mx-auto" />
           </div>
           
           <h1 className="text-3xl font-bold text-gray-900 mb-6">결제에 실패했습니다</h1>
@@ -90,11 +91,11 @@ const PaymentFailPage: React.FC = () => {
               onClick={handleRetryPayment} 
               className="flex-1 flex items-center justify-center gap-2 py-4 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
             >
-              <FiRefreshCw size={18} />
+              <Icon as={RefreshCw} className="h-[18px] w-[18px]" />
               다시 결제하기
             </button>
             <Link to="/" className="flex-1 flex items-center justify-center gap-2 py-4 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 transition-colors font-medium">
-              <FiHome size={18} />
+              <Icon as={House} className="h-[18px] w-[18px]" />
               홈으로
             </Link>
           </div>

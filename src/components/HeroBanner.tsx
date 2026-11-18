@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { HERO_SLIDES } from '../config/site'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import Icon from './Icon'
 
 // 메인 히어로 (D-2 재작성): 화면 좌우를 꽉 채우는 풀 블리드, 에디토리얼 문구 배치
 // 성능(LCP):
@@ -96,8 +98,8 @@ const HeroBanner: React.FC = () => {
           ))}
         </div>
         <div className="ml-auto hidden gap-2 text-etage-paper lg:flex">
-          <button type="button" onClick={() => go(current - 1)} aria-label="이전 기획전" className="h-10 w-10 border border-etage-paper/50 hover:border-etage-paper">‹</button>
-          <button type="button" onClick={() => go(current + 1)} aria-label="다음 기획전" className="h-10 w-10 border border-etage-paper/50 hover:border-etage-paper">›</button>
+          <button type="button" onClick={() => go(current - 1)} aria-label="이전 기획전" className="flex h-10 w-10 items-center justify-center border border-etage-paper/50 hover:border-etage-paper"><Icon as={ChevronLeft} className="h-4 w-4" /></button>
+          <button type="button" onClick={() => go(current + 1)} aria-label="다음 기획전" className="flex h-10 w-10 items-center justify-center border border-etage-paper/50 hover:border-etage-paper"><Icon as={ChevronRight} className="h-4 w-4" /></button>
         </div>
       </div>
     </section>

@@ -4,6 +4,8 @@ import { formatKRW } from '../../utils/format'
 import { useWishlistContext } from '../../context/WishlistContext'
 import QuickViewModal from './QuickViewModal'
 import { Swatch } from '../../services/swatchService'
+import { Heart, ShoppingBag, X } from 'lucide-react'
+import Icon from '../Icon'
 
 // 쇼핑몰의 모든 상품 목록(홈·카테고리·검색·찜·최근 본 상품)이 쓰는 단일 상품 카드.
 // 이전에는 6곳이 카드를 각자 구현해 모양·동작이 제각각이었다
@@ -83,14 +85,7 @@ const HeartButton: React.FC<{ product: ProductCardData }> = ({ product }) => {
       onAnimationEnd={() => setPop(false)}
       className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-etage-paper/85 text-etage-ink transition-colors hover:bg-etage-paper focus-visible:outline focus-visible:outline-2 focus-visible:outline-etage-ink"
     >
-      <svg
-        viewBox="0 0 24 24"
-        aria-hidden="true"
-        className={`h-[18px] w-[18px] stroke-current ${active ? 'fill-etage-ink' : 'fill-none'} ${pop ? 'animate-heart-pop' : ''}`}
-        strokeWidth={1.5}
-      >
-        <path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2Z" />
-      </svg>
+      <Icon as={Heart} className={`h-[18px] w-[18px] ${active ? 'fill-etage-ink' : ''} ${pop ? 'animate-heart-pop' : ''}`} />
     </button>
   )
 }
@@ -165,9 +160,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, cornerAction, eager 
           aria-label={`${product.name} 빠른 보기`}
           className="pointer-events-auto absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-etage-paper/90 text-etage-ink lg:hidden"
         >
-          <svg viewBox="0 0 24 24" aria-hidden="true" className="h-[18px] w-[18px] fill-none stroke-current" strokeWidth={1.5}>
-            <path d="M5 8h14l-1 12H6L5 8Z" /><path d="M9 8V6a3 3 0 0 1 6 0v2" />
-          </svg>
+          <Icon as={ShoppingBag} className="h-[18px] w-[18px]" />
         </button>
       </div>
       {quickViewOpen && <QuickViewModal productId={product.id} onClose={() => setQuickViewOpen(false)} />}
@@ -180,7 +173,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, cornerAction, eager 
           title={cornerAction.label}
           className="absolute left-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-etage-paper/90 text-etage-ink shadow-sm transition-colors hover:bg-etage-ink hover:text-etage-paper focus-visible:outline focus-visible:outline-2 focus-visible:outline-etage-ink"
         >
-          <span aria-hidden="true">×</span>
+          <Icon as={X} className="h-4 w-4" />
         </button>
       )}
     </article>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { FiPlus, FiSearch, FiFileText } from 'react-icons/fi'
+import { FileText, Plus, Search } from 'lucide-react'
+import Icon from '../components/Icon'
 import { useUser } from '../context/UserContext'
 import { getUserInquiries } from '../services/inquiryService'
 import { getUserOrders, Order } from '../services/orderService'
@@ -242,7 +243,7 @@ const InquiryHistoryPage: React.FC = () => {
                  to="/inquiry"
                  className="bg-gray-800 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
                >
-                 <FiPlus size={18} />
+                 <Icon as={Plus} className="h-[18px] w-[18px]" />
                  1:1 문의하기
                </Link>
              </div>
@@ -252,7 +253,7 @@ const InquiryHistoryPage: React.FC = () => {
                <div className="flex gap-4 items-center mb-4">
                  <div className="flex-1">
                    <div className="relative">
-                     <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                     <Icon as={Search} className="h-[18px] w-[18px] absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                      <input
                        type="text"
                        placeholder="문의 제목 또는 내용으로 검색"
@@ -310,7 +311,7 @@ const InquiryHistoryPage: React.FC = () => {
                              to={`/inquiry/${inquiry.id}`}
                              className="flex items-center gap-2 text-gray-800 hover:text-gray-600 transition-colors cursor-pointer"
                            >
-                             <FiFileText size={16} className="text-gray-400" />
+                             <Icon as={FileText} className="h-4 w-4 text-gray-400" />
                              <span className="text-sm font-medium">{inquiry.title}</span>
                            </Link>
                          </td>

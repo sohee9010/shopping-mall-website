@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { Product } from '../../types'
 import { useSwatches } from '../../hooks/useSwatches'
 import ProductCard from './ProductCard'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import Icon from '../Icon'
 
 // 상품 가로 슬라이드 (홈 Trending Now·브랜드 페이지 베스트셀러 공용, D-5에서 Trending Now에서 분리)
 // - CSS scroll-snap으로 넘김 (모바일은 손가락으로 밀기, 데스크톱은 화살표, 끝에 닿으면 비활성)
@@ -22,7 +24,7 @@ const Arrow: React.FC<{ dir: 'prev' | 'next'; disabled: boolean; onClick: () => 
     aria-label={dir === 'prev' ? '이전 상품 보기' : '다음 상품 보기'}
     className="flex h-10 w-10 items-center justify-center border border-etage-line text-etage-ink transition-colors hover:border-etage-ink disabled:cursor-default disabled:opacity-30 disabled:hover:border-etage-line"
   >
-    <span aria-hidden="true">{dir === 'prev' ? '‹' : '›'}</span>
+    <Icon as={dir === 'prev' ? ChevronLeft : ChevronRight} className="h-4 w-4" />
   </button>
 )
 

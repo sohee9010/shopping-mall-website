@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { FiArrowLeft, FiMessageSquare, FiFileText, FiDownload } from 'react-icons/fi'
+import { ArrowLeft, Download, FileText, MessageSquare } from 'lucide-react'
+import Icon from '../components/Icon'
 import { getInquiryById } from '../services/inquiryService'
 import { useUser } from '../context/UserContext'
 
@@ -162,14 +163,14 @@ const InquiryDetailPage: React.FC = () => {
             onClick={() => navigate('/inquiry-history')}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
           >
-            <FiArrowLeft size={20} />
+            <Icon as={ArrowLeft} className="h-5 w-5" />
             문의내역으로 돌아가기
           </button>
           <Link
             to="/inquiry"
             className="bg-gray-800 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
           >
-            <FiMessageSquare size={18} />
+            <Icon as={MessageSquare} className="h-[18px] w-[18px]" />
             새 문의하기
           </Link>
         </div>
@@ -235,13 +236,13 @@ const InquiryDetailPage: React.FC = () => {
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">첨부 파일</h3>
                 <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <FiFileText size={20} className="text-gray-600" />
+                  <Icon as={FileText} className="h-5 w-5 text-gray-600" />
                   <span className="text-gray-700">{inquiry.imageFile.name}</span>
                   <span className="text-sm text-gray-500">
                     ({(inquiry.imageFile.size / 1024).toFixed(1)}KB)
                   </span>
                   <button className="ml-auto px-3 py-1 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 transition-colors flex items-center gap-1">
-                    <FiDownload size={14} />
+                    <Icon as={Download} className="h-3.5 w-3.5" />
                     다운로드
                   </button>
                 </div>

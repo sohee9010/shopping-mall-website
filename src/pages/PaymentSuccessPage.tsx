@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useSearchParams, Link, useNavigate } from 'react-router-dom'
-import { FiCheckCircle, FiHome, FiShoppingBag } from 'react-icons/fi'
+import { CircleCheck, House, ShoppingBag } from 'lucide-react'
+import Icon from '../components/Icon'
 import { useCouponContext } from '../context/CouponContext'
 import { useCartContext } from '../context/CartContext'
 import { confirmPayment } from '../services/orderService'
@@ -141,7 +142,7 @@ const PaymentSuccessPage: React.FC = () => {
       <div className="max-w-2xl mx-auto px-6">
         <div className="bg-white rounded-lg shadow-sm p-12 text-center">
           <div className="text-green-500 mb-8">
-            <FiCheckCircle size={64} className="mx-auto" />
+            <Icon as={CircleCheck} className="h-16 w-16 mx-auto" />
           </div>
           
           <h1 className="text-3xl font-bold text-gray-900 mb-6">결제가 완료되었습니다!</h1>
@@ -183,14 +184,14 @@ const PaymentSuccessPage: React.FC = () => {
 
           <div className="flex gap-4 mb-12">
             <Link to="/" className="flex-1 flex items-center justify-center gap-2 py-4 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 transition-colors font-medium">
-              <FiHome size={18} />
+              <Icon as={House} className="h-[18px] w-[18px]" />
               홈으로
             </Link>
             <button 
               onClick={() => navigate('/mypage')}
               className="flex-1 flex items-center justify-center gap-2 py-4 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
             >
-              <FiShoppingBag size={18} />
+              <Icon as={ShoppingBag} className="h-[18px] w-[18px]" />
               주문내역 확인
             </button>
           </div>

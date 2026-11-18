@@ -5,6 +5,8 @@ import { useCartContext } from '../context/CartContext'
 import { getCategoriesHierarchy } from '../services/categoryService'
 import { useUser } from '../context/UserContext'
 import { getSearchSuggestions, getPopularSearchTerms } from '../services/productService'
+import { Search, ShoppingBag, User, Menu, X, Plus } from 'lucide-react'
+import Icon from './Icon'
 
 // 헤더 (D-2 재작성)
 // - 데스크톱: 가운데 로고 + 층(1차 카테고리) 가로 메뉴, 마우스를 올리거나 키보드로 초점이 가면 하위 메뉴 패널
@@ -25,18 +27,13 @@ interface Floor {
 }
 
 // ---------------------------------------------------------------------
-// 아이콘 (선 굵기를 맞춘 간단한 SVG)
+// 아이콘 (Lucide 공통 규칙: components/Icon.tsx)
 // ---------------------------------------------------------------------
-const Icon = ({ path, className = 'h-5 w-5' }: { path: React.ReactNode; className?: string }) => (
-  <svg viewBox="0 0 24 24" aria-hidden="true" className={`${className} fill-none stroke-current`} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-    {path}
-  </svg>
-)
-const SearchIcon = (p: { className?: string }) => <Icon {...p} path={<><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></>} />
-const BagIcon = (p: { className?: string }) => <Icon {...p} path={<><path d="M5 8h14l-1 12H6L5 8Z" /><path d="M9 8V6a3 3 0 0 1 6 0v2" /></>} />
-const UserIcon = (p: { className?: string }) => <Icon {...p} path={<><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></>} />
-const MenuIcon = (p: { className?: string }) => <Icon {...p} path={<><path d="M3 7h18" /><path d="M3 12h18" /><path d="M3 17h18" /></>} />
-const CloseIcon = (p: { className?: string }) => <Icon {...p} path={<><path d="M6 6l12 12" /><path d="M18 6 6 18" /></>} />
+const SearchIcon = (p: { className?: string }) => <Icon as={Search} {...p} />
+const BagIcon = (p: { className?: string }) => <Icon as={ShoppingBag} {...p} />
+const UserIcon = (p: { className?: string }) => <Icon as={User} {...p} />
+const MenuIcon = (p: { className?: string }) => <Icon as={Menu} {...p} />
+const CloseIcon = (p: { className?: string }) => <Icon as={X} {...p} />
 
 // ---------------------------------------------------------------------
 // 검색창: 데스크톱 헤더와 모바일 검색 패널이 함께 쓴다
@@ -385,7 +382,7 @@ const Header: React.FC = () => {
                       className="flex w-full items-center justify-between py-4 text-sm font-medium tracking-nav text-etage-ink"
                     >
                       {f.label}
-                      <span aria-hidden="true" className={`text-lg transition-transform ${expanded ? 'rotate-45' : ''}`}>+</span>
+                      <Icon as={Plus} className={`h-4 w-4 transition-transform ${expanded ? 'rotate-45' : ''}`} />
                     </button>
                     {expanded && (
                       <ul className="pb-4">

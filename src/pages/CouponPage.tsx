@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SITE } from '../config/site'
+import { Search } from 'lucide-react'
+import Icon from '../components/Icon'
 import { useNavigate, Link } from 'react-router-dom';
 import { useCouponContext } from '../context/CouponContext';
 import UserInfoModal from '../components/UserInfoModal';
@@ -218,9 +220,7 @@ const CouponPage: React.FC = () => {
                     className="px-6 py-2 bg-black text-white rounded-md hover:bg-gray-800 transition-colors"
                     onClick={handleSearch}
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
+                    <Icon as={Search} className="h-4 w-4" />
                   </button>
                 </div>
               </div>
