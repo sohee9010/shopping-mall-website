@@ -751,6 +751,25 @@ await works('보안 규칙: 입점사는 다른 브랜드 이름으로 상품을
   return { ok: !!error, detail: error ? `거부됨: ${error.message}` : '등록 성공 (문제)' }
 })
 
+// ---- 반품 신청 (P24) ----
+// 앱(마이페이지)이 쓰는 방식과 같이: orders를 '반품신청'으로 바꾸고 사유를 저장, 바뀐 행을 돌려받아 확인
+// 원본 마이페이지는 이 저장 자체를 하지 않았다(화면·localStorage만) — 브라우저 재현은 커밋 메시지 참고
+await works('반품 신청: 배송완료 주문은 사유와 함께 저장되고, 결제완료 주문은 거부됨', async () => {
+  const { client } = await login('customer@etage.test')
+  const { data: orders } = await client.from('orders').select('id, status').in('status', ['배송완료', '결제완료']).order('created_at')
+  const delivered = orders?.find((o) => o.status === '배송완료')
+  const paid = orders?.find((o) => o.status === '결제완료')
+  if (!delivered || !paid) return { ok: false, detail: '시드에 배송완료·결제완료 주문이 없음' }
+  const ok = await client.from('orders').update({ status: '반품신청', return_reason: '재현 확인' }).eq('id', delivered.id).select('status, return_reason')
+  const bad = await client.from('orders').update({ status: '반품신청', return_reason: '재현 확인' }).eq('id', paid.id).select('id')
+  const saved = ok.data?.[0]
+  return {
+    ok: !ok.error && saved?.status === '반품신청' && saved?.return_reason === '재현 확인' && !!bad.error,
+    detail: `배송완료 주문 → ${ok.error ? '실패: ' + ok.error.message : `${saved?.status}(사유 저장 ${saved?.return_reason ? 'O' : 'X'})`}, ` +
+      `결제완료 주문 → ${bad.error ? '거부: ' + bad.error.message : '저장됨 (문제)'}`,
+  }
+})
+
 // ---- 브랜드 번호(0010) 이후에만 의미가 있는 확인 ----
 const hasBrandId = !(await newClient().from('products').select('brand_id').limit(1)).error
 
