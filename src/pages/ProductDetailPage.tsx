@@ -15,6 +15,8 @@ import OptionSelector from '../components/product/OptionSelector'
 import ProductCard, { ProductGrid } from '../components/product/ProductCard'
 import { formatKRW } from '../utils/format'
 import { Product } from '../types'
+import { Heart, Plus } from 'lucide-react'
+import Icon from '../components/Icon'
 
 // 상품 상세 (D-5 재작성): 구매에 필요한 것만 깔끔하게
 // - 데스크톱: 왼쪽 세로 썸네일 + 큰 이미지 / 오른쪽 정보 패널(스크롤해도 따라옴), 브랜드명 → 브랜드 페이지
@@ -34,7 +36,7 @@ const InfoSection: React.FC<{ title: string; children: React.ReactNode; defaultO
   <details className="group border-b border-etage-line" open={defaultOpen}>
     <summary className="flex cursor-pointer list-none items-center justify-between py-4 text-sm font-medium text-etage-ink [&::-webkit-details-marker]:hidden">
       {title}
-      <span aria-hidden="true" className="text-lg font-light transition-transform group-open:rotate-45">+</span>
+      <Icon as={Plus} className="h-4 w-4 transition-transform group-open:rotate-45" />
     </summary>
     <div className="pb-5 text-sm leading-relaxed text-etage-muted">{children}</div>
   </details>
@@ -295,9 +297,7 @@ const ProductDetailPage: React.FC = () => {
                     aria-label={wished ? '찜 해제' : '찜하기'}
                     className="flex w-14 items-center justify-center border border-etage-line text-etage-ink transition-colors hover:border-etage-ink"
                   >
-                    <svg viewBox="0 0 24 24" aria-hidden="true" className={`h-5 w-5 stroke-current ${wished ? 'fill-etage-ink' : 'fill-none'}`} strokeWidth={1.5}>
-                      <path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2Z" />
-                    </svg>
+                    <Icon as={Heart} className={wished ? 'fill-etage-ink' : ''} />
                   </button>
                 </div>
                 <button

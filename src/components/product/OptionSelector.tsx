@@ -2,6 +2,8 @@ import React from 'react'
 import { VariantSelection } from '../../hooks/useVariantSelection'
 import { isPurchasable } from '../../services/variantService'
 import { formatKRW } from '../../utils/format'
+import { Minus, Plus } from 'lucide-react'
+import Icon from '../Icon'
 
 // 옵션 선택 화면 (상품 상세 · Quick View 공용, D-3)
 // 규칙은 useVariantSelection 훅에 있고, 이 컴포넌트는 그리기만 한다
@@ -60,9 +62,9 @@ const OptionSelector: React.FC<{ selection: VariantSelection }> = ({ selection: 
       <div>
         <p className="mb-3 text-sm font-medium text-etage-ink" id="quantity-label">수량</p>
         <div className="flex w-fit items-center border border-etage-line" role="group" aria-labelledby="quantity-label">
-          <button type="button" onClick={() => s.changeQuantity(-1)} disabled={s.quantity <= 1} aria-label="수량 줄이기" className="px-4 py-2 disabled:opacity-40">−</button>
+          <button type="button" onClick={() => s.changeQuantity(-1)} disabled={s.quantity <= 1} aria-label="수량 줄이기" className="px-4 py-2 disabled:opacity-40"><Icon as={Minus} className="h-3.5 w-3.5" /></button>
           <span className="min-w-[3rem] border-x border-etage-line px-4 py-2 text-center text-sm" aria-live="polite">{s.quantity}</span>
-          <button type="button" onClick={() => s.changeQuantity(1)} disabled={s.quantity >= s.maxQuantity} aria-label="수량 늘리기" className="px-4 py-2 disabled:opacity-40">+</button>
+          <button type="button" onClick={() => s.changeQuantity(1)} disabled={s.quantity >= s.maxQuantity} aria-label="수량 늘리기" className="px-4 py-2 disabled:opacity-40"><Icon as={Plus} className="h-3.5 w-3.5" /></button>
         </div>
       </div>
     </div>

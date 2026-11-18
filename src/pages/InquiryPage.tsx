@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
-import { FiMessageSquare, FiFileText, FiX, FiShoppingBag } from 'react-icons/fi'
+import { FileText, MessageSquare, ShoppingBag, X } from 'lucide-react'
+import Icon from '../components/Icon'
 import { useUser } from '../context/UserContext'
 import { getUserOrders, Order, orderItemOptionText } from '../services/orderService'
 import { createInquiry } from '../services/inquiryService'
@@ -309,7 +310,7 @@ const InquiryPage: React.FC = () => {
                   to="/inquiry-history"
                   className="bg-gray-800 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
                 >
-                  <FiMessageSquare size={18} />
+                  <Icon as={MessageSquare} className="h-[18px] w-[18px]" />
                   1:1 문의내역
                 </Link>
               </div>
@@ -350,7 +351,7 @@ const InquiryPage: React.FC = () => {
                         onClick={() => setShowOrderModal(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
                       >
-                        <FiShoppingBag size={16} />
+                        <Icon as={ShoppingBag} className="h-4 w-4" />
                         주문상품에서 찾기
                       </button>
                       <span className="text-sm text-gray-600">
@@ -366,7 +367,7 @@ const InquiryPage: React.FC = () => {
                              {selectedProduct.orderId ? (
                                // 주문 정보 표시
                                <div className="flex items-center gap-3">
-                                 <FiShoppingBag className="w-12 h-12 text-blue-600" />
+                                 <Icon as={ShoppingBag} className="w-12 h-12 text-blue-600" />
                                  <div>
                                    <div className="mb-1">
                                      <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">주문내역</span>
@@ -412,7 +413,7 @@ const InquiryPage: React.FC = () => {
                              }}
                              className="text-gray-400 hover:text-gray-600"
                            >
-                             <FiX size={20} />
+                             <Icon as={X} className="h-5 w-5" />
                            </button>
                          </div>
                        </div>
@@ -485,7 +486,7 @@ const InquiryPage: React.FC = () => {
                         onClick={removeFile}
                         className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors flex items-center gap-2"
                       >
-                        <FiX size={16} />
+                        <Icon as={X} className="h-4 w-4" />
                         취소
                       </button>
                     )}
@@ -493,7 +494,7 @@ const InquiryPage: React.FC = () => {
                   {formData.imageFile && (
                     <div className="mt-3 p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center gap-2">
-                        <FiFileText size={16} className="text-gray-600" />
+                        <Icon as={FileText} className="h-4 w-4 text-gray-600" />
                         <span className="text-sm text-gray-700">{formData.imageFile.name}</span>
                         <span className="text-xs text-gray-500">
                           ({(formData.imageFile.size / 1024).toFixed(1)}KB)

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { shippingFeeFor } from '../config/site'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { FiChevronDown, FiChevronUp } from 'react-icons/fi'
+import { ChevronDown, ChevronUp } from 'lucide-react'
+import Icon from '../components/Icon'
 import { useCartContext } from '../context/CartContext'
 import { useCouponContext } from '../context/CouponContext'
 import { useUser } from '../context/UserContext'
@@ -330,7 +331,7 @@ const CheckoutPage: React.FC = () => {
                                             </p>
                                         )}
                                     </div>
-                                    {showCouponSection ? <FiChevronUp size={20} /> : <FiChevronDown size={20} />}
+                                    {showCouponSection ? <Icon as={ChevronUp} className="h-5 w-5" /> : <Icon as={ChevronDown} className="h-5 w-5" />}
                                 </button>
                             )}
 

@@ -2,6 +2,13 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* 아이콘 선 굵기 고정 (components/Icon.tsx)
+   Lucide 아이콘은 24칸 격자에 그린 뒤 CSS 크기만큼 늘려 그려서, 선도 같이 굵어진다 (64px이면 4px).
+   non-scaling-stroke: 크기와 상관없이 화면에서 stroke-width(1.5px) 그대로 그린다 */
+.etage-icon * {
+  vector-effect: non-scaling-stroke;
+}
 /* stylelint-enable at-rule-no-unknown */
 
 * {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { SHIPPING, shippingFeeFor } from '../config/site'
-import { FiTrash2, FiMinus, FiPlus, FiHeart, FiGift, FiChevronDown, FiChevronUp } from 'react-icons/fi'
+import { ChevronDown, ChevronUp, Gift, Heart, Minus, Plus, Trash2 } from 'lucide-react'
+import Icon from '../components/Icon'
 import { Link, useNavigate } from 'react-router-dom'
 import { useCartContext } from '../context/CartContext'
 import { useCouponContext } from '../context/CouponContext'
@@ -159,11 +160,11 @@ const CartPage: React.FC = () => {
                       )}
                       <div className="flex gap-4">
                         <button className="flex items-center gap-1 text-sm text-gray-500 hover:text-black transition-colors">
-                          <FiHeart size={16} />
+                          <Icon as={Heart} className="h-4 w-4" />
                           관심상품
                         </button>
                         <button className="flex items-center gap-1 text-sm text-gray-500 hover:text-black transition-colors">
-                          <FiGift size={16} />
+                          <Icon as={Gift} className="h-4 w-4" />
                           선물하기
                         </button>
                       </div>
@@ -177,7 +178,7 @@ const CartPage: React.FC = () => {
                           className="p-2 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                           disabled={item.quantity <= 1}
                         >
-                          <FiMinus size={14} />
+                          <Icon as={Minus} className="h-3.5 w-3.5" />
                         </button>
                         <input
                           type="text"
@@ -189,7 +190,7 @@ const CartPage: React.FC = () => {
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
                           className="p-2 hover:bg-gray-50"
                         >
-                          <FiPlus size={14} />
+                          <Icon as={Plus} className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </div>
@@ -206,7 +207,7 @@ const CartPage: React.FC = () => {
                         className="p-2 text-gray-400 hover:text-red-500 transition-colors"
                         title="상품 삭제"
                       >
-                        <FiTrash2 size={18} />
+                        <Icon as={Trash2} className="h-[18px] w-[18px]" />
                       </button>
                     </div>
                   </div>
@@ -271,7 +272,7 @@ const CartPage: React.FC = () => {
                           }
                         </p>
                       </div>
-                      {showCouponSection ? <FiChevronUp size={20} /> : <FiChevronDown size={20} />}
+                      {showCouponSection ? <Icon as={ChevronUp} className="h-5 w-5" /> : <Icon as={ChevronDown} className="h-5 w-5" />}
                     </button>
                   )}
 

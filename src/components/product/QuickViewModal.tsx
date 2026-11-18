@@ -6,6 +6,8 @@ import { getProductById } from '../../services/productService'
 import { getProductVariants, formatOptionText } from '../../services/variantService'
 import { useVariantSelection } from '../../hooks/useVariantSelection'
 import { useCartContext } from '../../context/CartContext'
+import { X } from 'lucide-react'
+import Icon from '../Icon'
 import { useUser } from '../../context/UserContext'
 import { formatKRW } from '../../utils/format'
 import OptionSelector from './OptionSelector'
@@ -100,9 +102,9 @@ const QuickViewModal: React.FC<QuickViewModalProps> = ({ productId, onClose }) =
           type="button"
           onClick={onClose}
           aria-label="빠른 보기 닫기"
-          className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center bg-etage-paper/90 text-xl text-etage-ink"
+          className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center bg-etage-paper/90 text-etage-ink"
         >
-          ×
+          <Icon as={X} />
         </button>
 
         {isLoading || !product ? (

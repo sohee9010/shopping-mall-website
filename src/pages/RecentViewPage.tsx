@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react'
+import { Clock } from 'lucide-react'
+import Icon from '../components/Icon'
 import ProductCard, { ProductGrid } from '../components/product/ProductCard'
 import { useSwatches } from '../hooks/useSwatches'
 import { useRecentViewContext } from '../context/RecentViewContext'
@@ -72,24 +74,7 @@ const RecentViewPage: React.FC = () => {
             {recentItems.length === 0 && (
               <div className="text-center py-16">
                 <div className="mb-4">
-                  <svg width="80" height="80" viewBox="0 0 80 80" fill="none" className="mx-auto">
-                    <path
-                      d="M20 25h40l-4 30H24l-4-30z"
-                      stroke="#ddd"
-                      strokeWidth="2"
-                      fill="none"
-                    />
-                    <circle cx="30" cy="65" r="3" fill="#ddd" />
-                    <circle cx="50" cy="65" r="3" fill="#ddd" />
-                    <path
-                      d="M15 15h5l2 10"
-                      stroke="#ddd"
-                      strokeWidth="2"
-                      fill="none"
-                    />
-                    <circle cx="55" cy="35" r="8" stroke="#ddd" strokeWidth="2" fill="none" />
-                    <path d="M50 35h10M55 30v10" stroke="#ddd" strokeWidth="2" />
-                  </svg>
+                  <Icon as={Clock} className="mx-auto h-16 w-16 text-etage-line" />
                 </div>
                 <p className="text-gray-500 text-lg">최근 본 상품이 없습니다.</p>
               </div>

@@ -1,5 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
+import { ArrowRight } from 'lucide-react'
+import Icon from '../Icon'
 
 // 홈 섹션 제목: 작은 라벨 + 세리프 제목, 오른쪽에 [View All] (해당 층 전체 상품 페이지로)
 interface SectionHeaderProps {
@@ -22,7 +24,7 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({ eyebrow, title, viewAllTo
         className="group flex shrink-0 items-center gap-2 border-b border-etage-ink pb-1 text-xs font-medium uppercase tracking-nav text-etage-ink"
       >
         View All
-        <span aria-hidden="true" className="transition-transform group-hover:translate-x-1">→</span>
+        <Icon as={ArrowRight} className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
       </Link>
     )}
   </div>
