@@ -516,19 +516,22 @@ await check('P20', '본사가 브랜드명을 바꾸면 입점사가 자기 상�
 
     const before = await merchantOwnership(lunelle)
     const { error: renameErr } = await hq.from('brand_admins').update({ name: 'LUNELLE PARIS' }).eq('id', brand.id)
-    let after
+    let after, shopShows, receiptShows
     try {
       after = await merchantOwnership(lunelle)
+      // 이름이 바뀐 상태에서: 쇼핑몰 상품 표시(새 이름이어야 함), 고객의 과거 주문 줄(구매 당시 이름이어야 함)
+      shopShows = (await productByName(customer, knit.name)).brand
+      const { data: line } = await customer.from('order_items').select('brand').eq('product_id', knit.id).limit(1)
+      receiptShows = line?.[0]?.brand ?? '(주문 줄 없음)'
     } finally {
       await hq.from('brand_admins').update({ name: brand.name }).eq('id', brand.id) // 다음 검사를 위해 원래 이름으로 되돌림
     }
-    const shopShows = (await productByName(customer, knit.name)).brand
     const lost = !renameErr && (after.products < before.products || after.orders < before.orders || after.inquiries < before.inquiries)
     const fmt = (s) => `상품 ${s.products}개 수정 가능, 주문 ${s.orders}건, 문의 ${s.inquiries}건`
     return {
       reproduced: lost,
       actual: `변경 전('${before.brandName}'): ${fmt(before)} → 본사가 브랜드명을 'LUNELLE PARIS'로 변경 ${renameErr ? '실패: ' + renameErr.message : '성공'} → ` +
-        `변경 후('${after?.brandName}'): ${after ? fmt(after) : '-'}. 쇼핑몰 상품의 브랜드 표시는 여전히 '${shopShows}'`,
+        `변경 후('${after?.brandName}'): ${after ? fmt(after) : '-'}. 변경 중 쇼핑몰 상품 표시 '${shopShows}', 고객의 과거 주문 줄 '${receiptShows}'`,
     }
   })
 
@@ -746,6 +749,38 @@ await works('보안 규칙: 입점사는 다른 브랜드 이름으로 상품을
   const { data: nextId } = await client.rpc('get_next_product_id')
   const { error } = await client.from('products').insert([{ id: nextId, name: '남의 브랜드로 등록 시도', price: 1, brand: 'GREYMONT' }])
   return { ok: !!error, detail: error ? `거부됨: ${error.message}` : '등록 성공 (문제)' }
+})
+
+// ---- 브랜드 번호(0010) 이후에만 의미가 있는 확인 ----
+const hasBrandId = !(await newClient().from('products').select('brand_id').limit(1)).error
+
+await works('브랜드명 변경: 쇼핑몰 표시는 새 이름, 과거 주문 줄은 구매 당시 이름', async () => {
+  if (!hasBrandId) return { ok: true, detail: '0010 이전 구조(브랜드 번호 없음) — 해당 없음' }
+  const { client: hq } = await login('hq@etage.test')
+  const { client: customer } = await login('customer@etage.test')
+  const { data: brand } = await hq.from('brand_admins').select('id, name').eq('name', 'GREYMONT').single()
+  const blazer = await productByName(customer, 'GREYMONT 울 블레이저')
+  let shown, receipt
+  try {
+    await hq.from('brand_admins').update({ name: 'GREYMONT ATELIER' }).eq('id', brand.id)
+    shown = (await productByName(customer, blazer.name)).brand
+    const { data } = await customer.from('order_items').select('brand').eq('product_id', blazer.id).limit(1)
+    receipt = data?.[0]?.brand
+  } finally {
+    await hq.from('brand_admins').update({ name: brand.name }).eq('id', brand.id)
+  }
+  return {
+    ok: shown === 'GREYMONT ATELIER' && receipt === 'GREYMONT',
+    detail: `상품 표시 '${shown}', 과거 주문 줄 '${receipt ?? '(없음)'}'`,
+  }
+})
+await works('입점사: 브랜드를 보내지 않고 상품 등록 → 자기 브랜드로 저장', async () => {
+  if (!hasBrandId) return { ok: true, detail: '0010 이전 구조 — 해당 없음' }
+  const { client } = await login('lunelle@etage.test')
+  const { data: nextId } = await client.rpc('get_next_product_id')
+  const { data, error } = await client.from('products').insert([{ id: nextId, name: '브랜드 생략 등록', price: 1000, status: 'hidden' }])
+    .select('brand, brand_id').single()
+  return { ok: !error && data.brand === 'LUNELLE', detail: error ? `실패: ${error.message}` : `저장된 브랜드 '${data.brand}'(번호 ${data.brand_id})` }
 })
 
 // ---- 주문 상품 줄(0009) 이후에만 의미가 있는 확인 ----
