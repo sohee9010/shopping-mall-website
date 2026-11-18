@@ -22,6 +22,11 @@ export default {
       },
       letterSpacing: {
         label: '0.12em',      // 브랜드명 같은 대문자 라벨
+        nav: '0.18em',        // 상단 메뉴(WOMEN·MEN …)
+      },
+      fontFamily: {
+        // 로고·섹션 제목 같은 영문 표제용 세리프 (D-2). 한글은 Noto Sans KR로 대체 표시
+        display: ['"Cormorant Garamond"', '"Noto Sans KR"', 'serif'],
       },
       keyframes: {
         'slide-in': {

@@ -432,6 +432,26 @@ export const getProductsByParentCategory = async (parentCategoryId: number): Pro
     }
 }
 
+// 층(1차 카테고리)별 인기 상품 (홈 큐레이션 섹션, D-2)
+// getProductsByParentCategory는 카테고리 정보·하위 목록까지 함께 조회해 홈에서 여러 번 부르기엔 무겁다.
+// 하위 카테고리 id → 판매량 순 상위 N개만 가져온다
+export const getTopProductsInFloor = async (floorCategoryId: number, limit: number = 4): Promise<Product[]> => {
+    const ids = await getAllSubcategoryIds(floorCategoryId)
+    if (ids.length === 0) return []
+    const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .in('category_id', [floorCategoryId, ...ids])
+        .eq('status', 'forsale')
+        .order('sales', { ascending: false })
+        .limit(limit)
+    if (error) {
+        console.error('층별 인기 상품 조회 오류:', error)
+        return []
+    }
+    return (data ?? []).map((product) => ({ ...product, image: product.image_urls?.[0] ?? '' }))
+}
+
 // 재귀적으로 모든 하위 카테고리 ID 가져오기
 const getAllSubcategoryIds = async (parentId: number): Promise<number[]> => {
     try {

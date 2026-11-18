@@ -38,36 +38,52 @@ export const unsplashUrl = (raw: string, width: number, height: number): string 
 const banner = (key: keyof typeof bannerImages, width: number, height: number) =>
   unsplashUrl(bannerImages[key], width, height)
 
-// 메인 배너
+// 상단 가로 메뉴(GNB)의 층 구성 (D-2)
+// 메뉴 항목·하위 메뉴는 DB 1차 카테고리에서 읽고, 여기서는 '표시 순서와 영문 표기'만 정한다.
+// (DB는 이름순 정렬이라 남성·뷰티·여성·잡화 순서가 되므로 층 순서를 따로 둔다)
+// LIVING은 상품 범위(패션·뷰티) 밖이라 넣지 않는다
+export const FLOORS = [
+  { categoryName: '여성', label: 'WOMEN' },
+  { categoryName: '남성', label: 'MEN' },
+  { categoryName: '잡화', label: 'ACCESSORIES' },
+  { categoryName: '뷰티', label: 'BEAUTY' },
+] as const
+
+// 메인 배너 (풀 블리드). 모바일은 세로형으로 잘라 받아 전송량을 줄인다
+const heroImage = (key: keyof typeof bannerImages) => ({
+  image: banner(key, 1920, 960),
+  imageMobile: banner(key, 828, 1100),
+})
 export const HERO_SLIDES = [
-  { image: banner('hero-1', 1920, 800), title: 'THE WOOL EDIT', description: '한 겹 더 깊어진 계절, 울과 캐시미어 컬렉션' },
-  { image: banner('hero-2', 1920, 800), title: 'MENSWEAR FLOOR', description: '클래식에서 캐주얼까지, 남성 층 신규 입점 브랜드' },
-  { image: banner('hero-3', 1920, 800), title: 'ACCESSORIES', description: '가방·신발·주얼리, 스타일을 완성하는 마지막 한 가지' },
-  { image: banner('hero-4', 1920, 800), title: 'BEAUTY ROUTINE', description: '피부 장벽부터 향까지, 뷰티 층 데일리 루틴' },
-  { image: banner('hero-5', 1920, 800), title: `WELCOME TO ${SITE.name}`, description: SITE.tagline },
+  { ...heroImage('hero-1'), eyebrow: 'WOMEN', title: 'THE WOOL EDIT', description: '한 겹 더 깊어진 계절, 울과 캐시미어 컬렉션', link: '/category/1' },
+  { ...heroImage('hero-2'), eyebrow: 'MEN', title: 'MENSWEAR FLOOR', description: '클래식에서 캐주얼까지, 남성 층 신규 입점 브랜드', link: '/category/2' },
+  { ...heroImage('hero-3'), eyebrow: 'ACCESSORIES', title: 'THE FINAL TOUCH', description: '가방·신발·주얼리, 스타일을 완성하는 마지막 한 가지', link: '/category/3' },
+  { ...heroImage('hero-4'), eyebrow: 'BEAUTY', title: 'BEAUTY ROUTINE', description: '피부 장벽부터 향까지, 뷰티 층 데일리 루틴', link: '/category/4' },
+  { ...heroImage('hero-5'), eyebrow: SITE.nameKo, title: `WELCOME TO ${SITE.name}`, description: SITE.tagline, link: '/category/1' },
 ]
 
 // 홈 카테고리 카드 이미지 (id는 시드의 대분류 id: 1 여성, 2 남성, 3 잡화, 4 뷰티)
+// 홈 'Shop by Floor' 층 타일 (비대칭 배치: 첫 타일이 크게). 큰 타일 기준 크기로 받는다
 export const CATEGORY_CARDS = [
-  { id: 1, name: '여성', image: banner('category-women', 800, 1000) },
-  { id: 2, name: '남성', image: banner('category-men', 800, 1000) },
-  { id: 3, name: '잡화', image: banner('hero-3', 800, 1000) },
-  { id: 4, name: '뷰티', image: banner('category-beauty', 800, 1000) },
+  { id: 1, label: 'WOMEN', name: '여성', image: banner('category-women', 1200, 1500) },
+  { id: 2, label: 'MEN', name: '남성', image: banner('category-men', 1200, 900) },
+  { id: 3, label: 'ACCESSORIES', name: '잡화', image: banner('hero-3', 800, 1000) },
+  { id: 4, label: 'BEAUTY', name: '뷰티', image: banner('category-beauty', 800, 1000) },
 ]
 
-// Weekly Focus (주간 기획)
+// 이번 주 기획 (에디토리얼: 큰 가로 이미지 1 + 엇갈린 세로 이미지 2)
 export const WEEKLY_FOCUS = {
-  main: { tag: 'KNITWEAR', title: 'KNIT WEEK', description: 'LUNELLE·OFFBEAT STUDIO 니트 컬렉션', image: banner('focus-main', 1200, 800), link: '/category/1' },
+  main: { tag: 'KNITWEAR', title: 'KNIT WEEK', description: 'LUNELLE·OFFBEAT STUDIO 니트 컬렉션', image: banner('focus-main', 1400, 1000), link: '/category/1' },
   subs: [
-    { tag: 'BEAUTY', title: '향으로 기억되는 계절', image: banner('focus-sub-1', 600, 400), link: '/category/4' },
-    { tag: 'ACCESSORIES', title: '데일리 토트백', image: banner('focus-sub-2', 600, 400), link: '/category/3' },
+    { tag: 'BEAUTY', title: '향으로 기억되는 계절', image: banner('focus-sub-1', 700, 900), link: '/category/4' },
+    { tag: 'ACCESSORIES', title: '데일리 토트백', image: banner('focus-sub-2', 700, 900), link: '/category/3' },
   ],
 }
 
-// New Brand Avenue (가상 입점 브랜드)
+// 층별 룩북 (가상 입점 브랜드 화보 + 그 층 인기 상품). 화보는 세로형으로 받는다
 export const BRAND_AVENUE = [
-  { name: 'LUNELLE', tag: 'WOMEN', summary: '캐시미어와 울로 완성하는 컨템포러리 니트·코트', image: banner('brand-lunelle', 800, 500) },
-  { name: 'GREYMONT', tag: 'MEN', summary: '오래 입는 클래식, 셔츠와 테일러드 아우터', image: banner('brand-greymont', 800, 500) },
-  { name: 'ATELIER VERO', tag: 'ACCESSORIES', summary: '장인의 손끝에서 완성되는 가죽 가방과 슈즈', image: banner('brand-atelier-vero', 800, 500) },
-  { name: 'NOCTURNE', tag: 'BEAUTY', summary: '밤의 공기를 담은 향수와 메이크업', image: banner('brand-nocturne', 800, 500) },
+  { floorId: 1, name: 'LUNELLE', tag: 'WOMEN', title: "The Women's Floor", summary: '캐시미어와 울로 완성하는 컨템포러리 니트·코트', image: banner('brand-lunelle', 900, 1200) },
+  { floorId: 2, name: 'GREYMONT', tag: 'MEN', title: "The Men's Floor", summary: '오래 입는 클래식, 셔츠와 테일러드 아우터', image: banner('brand-greymont', 900, 1200) },
+  { floorId: 3, name: 'ATELIER VERO', tag: 'ACCESSORIES', title: 'Accessories', summary: '장인의 손끝에서 완성되는 가죽 가방과 슈즈', image: banner('brand-atelier-vero', 900, 1200) },
+  { floorId: 4, name: 'NOCTURNE', tag: 'BEAUTY', title: 'Beauty Hall', summary: '밤의 공기를 담은 향수와 메이크업', image: banner('brand-nocturne', 900, 1200) },
 ]

@@ -79,16 +79,22 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, cornerAction, eager 
 }
 
 // 상품 목록 격자: 모바일 2열(커머스 표준) → 태블릿 3열 → 데스크톱 4열
-export const ProductGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-6">{children}</div>
+// columns="2": 항상 2열 (홈 룩북의 2×2처럼 좁은 칸 안에 넣을 때). 뼈대 화면도 같은 값을 써야 로딩 후 밀리지 않는다
+type GridColumns = 'auto' | '2'
+const GRID_COLUMNS: Record<GridColumns, string> = {
+  auto: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4',
+  '2': 'grid-cols-2',
+}
+export const ProductGrid: React.FC<{ children: React.ReactNode; columns?: GridColumns }> = ({ children, columns = 'auto' }) => (
+  <div className={`grid gap-x-4 gap-y-10 lg:gap-x-6 ${GRID_COLUMNS[columns]}`}>{children}</div>
 )
 
 // 로딩 중 자리 표시: 실제 카드와 같은 비율·간격의 회색 상자.
 // 화면 가운데 스피너를 띄웠다가 목록으로 바꾸면 React가 같은 div를 재사용해 '스피너 상자가 위로 이동·확대'된 것으로
 // 계산되어 레이아웃 밀림(CLS 0.314)이 생겼다. 같은 자리에 같은 모양을 미리 그려 두면 아무것도 움직이지 않는다
-export const ProductGridSkeleton: React.FC<{ count?: number }> = ({ count = 8 }) => (
+export const ProductGridSkeleton: React.FC<{ count?: number; columns?: GridColumns }> = ({ count = 8, columns = 'auto' }) => (
   <div role="status" aria-label="상품을 불러오는 중">
-    <ProductGrid>
+    <ProductGrid columns={columns}>
       {Array.from({ length: count }, (_, i) => (
         <div key={i} aria-hidden="true" className="animate-pulse">
           <div className="aspect-product bg-etage-canvas" />

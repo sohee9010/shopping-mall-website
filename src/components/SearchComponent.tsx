@@ -26,7 +26,10 @@ interface SearchFilters {
 }
 
 const SearchComponent: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState('')
+  const location = useLocation()
+  // 첫 렌더부터 주소의 검색어를 쓴다. 빈 값으로 시작했다가 effect에서 채우면
+  // 제목·통계 줄이 한 박자 늦게 생겨 아래 내용이 밀린다(CLS)
+  const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(location.search).get('search') ?? '')
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [popularTerms, setPopularTerms] = useState<string[]>([])
   const [relatedTerms, setRelatedTerms] = useState<string[]>([])
@@ -42,7 +45,6 @@ const SearchComponent: React.FC = () => {
   const [searchStats, setSearchStats] = useState({ totalSearches: 0, recentSearches: 0 })
   
   const navigate = useNavigate()
-  const location = useLocation()
   const { currentUser } = useUser()
   const searchInputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
@@ -227,11 +229,16 @@ const SearchComponent: React.FC = () => {
           {searchQuery ? `"${searchQuery}" 검색 결과` : '상품 검색'}
         </h1>
         
-        {/* 검색 통계 */}
-        {searchQuery && searchStats.totalSearches > 0 && (
-          <div className="mb-4 text-sm text-gray-600">
-            이 검색어는 총 {searchStats.totalSearches}번 검색되었으며, 
-            최근 1주일간 {searchStats.recentSearches}번 검색되었습니다.
+        {/* 검색 통계: 결과보다 늦게 도착하면 아래 내용 전체를 밀어 내렸다(모바일 56px, CLS 0.046).
+            검색어가 있으면 두 줄 높이를 먼저 확보해 두고 문구만 채운다 */}
+        {searchQuery && (
+          <div className="mb-4 min-h-[2.5rem] text-sm text-gray-600" aria-live="polite">
+            {searchStats.totalSearches > 0 && (
+              <>
+                이 검색어는 총 {searchStats.totalSearches}번 검색되었으며,
+                최근 1주일간 {searchStats.recentSearches}번 검색되었습니다.
+              </>
+            )}
           </div>
         )}
         

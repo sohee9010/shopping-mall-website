@@ -973,15 +973,6 @@
       "photoUrl": "https://unsplash.com/photos/clear-glass-bottle-on-white-table-iDDGJt3veps",
       "downloadLocation": "https://api.unsplash.com/photos/iDDGJt3veps/download?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8MXx8cGVyZnVtZSUyMGJvdHRsZXxlbnwxfDJ8fHwxNzk0ODk2NTg0fDA"
     },
-    "MsAXaqPPg1A": {
-      "id": "MsAXaqPPg1A",
-      "alt": "a woman wearing sunglasses and a coat",
-      "raw": "https://images.unsplash.com/photo-1645561305502-63a9ba09ab09?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8NHx8d29tZW4lMjBmYXNoaW9uJTIwZWRpdG9yaWFsfGVufDF8MHx8fDE3OTQ4OTY1ODR8MA&ixlib=rb-4.1.0",
-      "author": "mojtaba mosayebzadeh",
-      "authorUrl": "https://unsplash.com/@mojiw",
-      "photoUrl": "https://unsplash.com/photos/a-woman-wearing-sunglasses-and-a-coat-MsAXaqPPg1A",
-      "downloadLocation": "https://api.unsplash.com/photos/MsAXaqPPg1A/download?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8NHx8d29tZW4lMjBmYXNoaW9uJTIwZWRpdG9yaWFsfGVufDF8MHx8fDE3OTQ4OTY1ODR8MA"
-    },
     "Imt-VGZ0ypw": {
       "id": "Imt-VGZ0ypw",
       "alt": "A bearded man in dark clothes sits on a chair",
@@ -1098,6 +1089,15 @@
       "authorUrl": "https://unsplash.com/@wattersonboi",
       "photoUrl": "https://unsplash.com/photos/a-bottle-of-perfume-sitting-on-top-of-a-mirror-oSdSM-jZzJU",
       "downloadLocation": "https://api.unsplash.com/photos/oSdSM-jZzJU/download?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8OXx8cGVyZnVtZSUyMGJvdHRsZXxlbnwxfDJ8fHwxNzk0ODk2NTg0fDA"
+    },
+    "oMVzDzJ-8Wk": {
+      "id": "oMVzDzJ-8Wk",
+      "alt": "Woman in a beige coat by the water",
+      "raw": "https://images.unsplash.com/photo-1770644935636-7105430e2e52?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8MTF8fHdvbWFuJTIwd29vbCUyMGNvYXQlMjBhdXR1bW4lMjBlZGl0b3JpYWx8ZW58MXwwfHx8MTc5NDk2NTMxMXww&ixlib=rb-4.1.0",
+      "author": "Margo Evardson",
+      "authorUrl": "https://unsplash.com/@stadinstudio",
+      "photoUrl": "https://unsplash.com/photos/woman-in-a-beige-coat-by-the-water-oMVzDzJ-8Wk",
+      "downloadLocation": "https://api.unsplash.com/photos/oMVzDzJ-8Wk/download?ixid=M3wxMTM2NDUwfDB8MXxzZWFyY2h8MTF8fHdvbWFuJTIwd29vbCUyMGNvYXQlMjBhdXR1bW4lMjBlZGl0b3JpYWx8ZW58MXwwfHx8MTc5NDk2NTMxMXww"
     }
   },
   "products": {
@@ -1325,7 +1325,7 @@
     ]
   },
   "banners": {
-    "hero-1": "MsAXaqPPg1A",
+    "hero-1": "oMVzDzJ-8Wk",
     "hero-2": "Imt-VGZ0ypw",
     "hero-3": "7QjF0V8NOms",
     "hero-4": "E30Dik5cHO8",
