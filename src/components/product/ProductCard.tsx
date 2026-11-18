@@ -83,4 +83,22 @@ export const ProductGrid: React.FC<{ children: React.ReactNode }> = ({ children 
   <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-6">{children}</div>
 )
 
+// 로딩 중 자리 표시: 실제 카드와 같은 비율·간격의 회색 상자.
+// 화면 가운데 스피너를 띄웠다가 목록으로 바꾸면 React가 같은 div를 재사용해 '스피너 상자가 위로 이동·확대'된 것으로
+// 계산되어 레이아웃 밀림(CLS 0.314)이 생겼다. 같은 자리에 같은 모양을 미리 그려 두면 아무것도 움직이지 않는다
+export const ProductGridSkeleton: React.FC<{ count?: number }> = ({ count = 8 }) => (
+  <div role="status" aria-label="상품을 불러오는 중">
+    <ProductGrid>
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} aria-hidden="true" className="animate-pulse">
+          <div className="aspect-product bg-etage-canvas" />
+          <div className="mt-3 h-2.5 w-1/3 bg-etage-canvas" />
+          <div className="mt-2 h-3.5 w-4/5 bg-etage-canvas" />
+          <div className="mt-2 h-3.5 w-1/4 bg-etage-canvas" />
+        </div>
+      ))}
+    </ProductGrid>
+  </div>
+)
+
 export default ProductCard

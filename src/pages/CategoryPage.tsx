@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { getProductsByLevel3Category, getProductsByParentCategory, getCategoryById } from '../services/categoryService'
 import { supabase } from '../services/supabase'
 import { Product } from '../types'
-import ProductCard, { ProductGrid } from '../components/product/ProductCard'
+import ProductCard, { ProductGrid, ProductGridSkeleton } from '../components/product/ProductCard'
 
 const CategoryPage: React.FC = () => {
     const { categoryId, category } = useParams<{ categoryId: string; category: string }>()
@@ -129,12 +129,16 @@ const CategoryPage: React.FC = () => {
         }
     }
 
+    // 로딩 화면은 실제 화면과 같은 틀(제목 자리 + 상품 격자 자리)로 그린다 → 내용이 들어와도 움직이지 않음 (CLS)
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto mb-4"></div>
-                    <p className="text-gray-600">상품을 불러오는 중...</p>
+            <div className="min-h-screen bg-gray-50 py-8">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="mb-8">
+                        <div className="h-9 w-32 bg-etage-canvas animate-pulse mb-2" />
+                        <div className="h-6 w-24 bg-etage-canvas animate-pulse" />
+                    </div>
+                    <ProductGridSkeleton />
                 </div>
             </div>
         )
