@@ -10,7 +10,7 @@ const WishlistPage: React.FC = () => {
   const [sortBy, setSortBy] = useState('latest')
   const [showUserInfoModal, setShowUserInfoModal] = useState(false)
   const [user, setUser] = useState<any>(null)
-  const { wishlistItems, removeFromWishlist, getWishlistCount, clearWishlist } = useWishlistContext()
+  const { wishlistItems, getWishlistCount, clearWishlist } = useWishlistContext()
   const { currentUser } = useUser()
 
   useEffect(() => {
@@ -161,12 +161,9 @@ const WishlistPage: React.FC = () => {
             {/* 찜 아이템 목록 */}
             {wishlistItems.length > 0 && activeTab === 'shopping' && (
               <ProductGrid>
+                {/* 찜 해제는 카드의 하트 버튼으로 (별도 × 버튼과 기능이 겹쳐 제거) */}
                 {wishlistItems.map((item) => (
-                  <ProductCard
-                    key={item.id}
-                    product={item}
-                    cornerAction={{ label: `${item.name} 찜 해제`, onClick: () => removeFromWishlist(item.id) }}
-                  />
+                  <ProductCard key={item.id} product={item} />
                 ))}
               </ProductGrid>
             )}
