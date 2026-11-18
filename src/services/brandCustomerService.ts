@@ -21,7 +21,7 @@ export const getBrandCustomers = async (brandName: string): Promise<BrandCustome
 
     // 1. 해당 브랜드 상품을 구매한 모든 주문 조회
     const { data: orders, error: ordersError } = await supabase
-      .from('orders')
+      .rpc('merchant_orders') // 자기 브랜드 줄이 있는 주문만 (0009)
       .select(`
         id,
         user_id,

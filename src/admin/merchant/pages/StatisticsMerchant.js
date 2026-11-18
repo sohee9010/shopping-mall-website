@@ -176,7 +176,7 @@ const StatisticsMerchant = () => {
 
       // 2. 주문 및 매출 통계 (JSONB items 배열에서 브랜드 필터링)
       const { data: allOrders } = await supabase
-        .from('orders')
+        .rpc('merchant_orders') // 자기 브랜드 줄만 (0009)
         .select(`
           id,
           user_id,
@@ -285,7 +285,7 @@ const StatisticsMerchant = () => {
 
       // 2. 인기 상품 TOP 10 (주문 데이터에서 브랜드별 계산)
       const { data: allOrders } = await supabase
-        .from('orders')
+        .rpc('merchant_orders') // 자기 브랜드 줄만 (0009)
         .select('items, order_date, created_at');
 
       console.log(`📦 전체 주문 데이터:`, allOrders?.length || 0, '건');
@@ -372,7 +372,7 @@ const StatisticsMerchant = () => {
 
       // 성과 지표 계산
       const { data: allOrders } = await supabase
-        .from('orders')
+        .rpc('merchant_orders') // 자기 브랜드 줄만 (0009)
         .select('items, order_date, created_at');
 
       const currentMonth = new Date().getMonth();

@@ -110,6 +110,7 @@ const OrderTracking: React.FC = () => {
             '주문접수': { text: '주문접수', className: 'bg-yellow-100 text-yellow-800' },
             '결제완료': { text: '결제완료', className: 'bg-blue-100 text-blue-800' },
             '상품준비': { text: '상품준비', className: 'bg-red-100 text-red-800' },
+            '부분배송': { text: '부분배송', className: 'bg-indigo-100 text-indigo-800' },
             '배송중': { text: '배송중', className: 'bg-blue-100 text-blue-800' },
             '배송완료': { text: '배송완료', className: 'bg-green-100 text-green-800' }
         }
@@ -288,6 +289,14 @@ const OrderTracking: React.FC = () => {
                                                     <h4 className="text-base font-semibold text-gray-800 mb-2">{item.name}</h4>
                                                     <p className="text-sm text-gray-600 mb-1">수량: {item.quantity}개</p>
                                                     <p className="text-sm text-gray-600">단가: {item.price.toLocaleString()}원</p>
+                                                    {/* 상품 줄별 배송 상태: 한 주문에 여러 브랜드가 있으면 브랜드마다 따로 발송된다 (0009) */}
+                                                    {order.order_items?.[itemIndex] && (
+                                                        <p className="text-sm text-gray-600 mt-1">
+                                                            {order.order_items[itemIndex].status}
+                                                            {order.order_items[itemIndex].tracking_number &&
+                                                                ` · ${order.order_items[itemIndex].tracking_company ?? ''} ${order.order_items[itemIndex].tracking_number}`}
+                                                        </p>
+                                                    )}
                                                 </div>
                                                 <div className="text-center min-w-32">
                                                     <span className="text-xl font-bold text-gray-800">
