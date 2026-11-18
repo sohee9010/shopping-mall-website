@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { MessageSquare } from 'lucide-react'
 import { useCouponContext } from '../context/CouponContext'
 import UserInfoModal from '../components/UserInfoModal'
-import { getUserOrders, Order, cancelOrder, orderItemOptionText } from '../services/orderService'
+import { getUserOrders, Order, cancelOrder, requestReturn, orderItemOptionText } from '../services/orderService'
 import { useUser, User } from '../context/UserContext'
 import { verifyPasswordForAccess, changePassword } from '../services/userService'
 import { getUserInquiries } from '../services/inquiryService'
@@ -533,24 +533,16 @@ const MyPage: React.FC = () => {
         }
     }
 
-    // 반품 신청
-    const handleReturnRequest = (orderId: string) => {
+    // 반품 신청 (P24: 이전에는 화면·localStorage만 바꾸고 DB에 저장하지 않았다)
+    const handleReturnRequest = async (orderId: string) => {
         const reason = prompt('반품 사유를 입력해주세요:')
-        if (reason) {
-            const updatedOrders = orders.map(order => {
-                if (order.id === orderId) {
-                    return {
-                        ...order,
-                        status: '반품신청' as const,
-                        return_reason: reason,
-                        updated_at: new Date().toISOString()
-                    }
-                }
-                return order
-            })
-            setOrders(updatedOrders)
-            localStorage.setItem('orders', JSON.stringify(updatedOrders))
-            alert('반품 신청이 완료되었습니다.')
+        if (!reason) return
+        const result = await requestReturn(orderId, reason)
+        if (result.ok) {
+            await loadOrders() // DB에서 다시 읽어 실제 상태를 보여 준다
+            alert('반품 신청이 접수되었습니다. 브랜드 확인 후 처리됩니다.')
+        } else {
+            alert(`반품 신청에 실패했습니다. ${result.message ?? ''}`)
         }
     }
 
