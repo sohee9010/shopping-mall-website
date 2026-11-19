@@ -10,8 +10,9 @@ import './maison-vell.css'
 // 2. 깊이별 위치·크기·흐림·투명도는 공식이 아니라 7칸 표(-1~5)에서 선형 보간
 // 3. 모델 6명·상품 12개는 이미지 2장(스프라이트 시트)을 SVG viewBox로 잘라 보여 준다
 // 4. 모델은 한 번만 크기를 잡고 transform만 바꿔 선명도를 유지, 흐림은 배율로 나눠 화면상 같은 정도로
-// 5. 끄는 동안은 손가락을 그대로 따라가고, 놓으면 가장 가까운 룩으로 맞춘다. p는 목표를 지수 감쇠로 따라감
-// 6. 상품 열은 12장이 한 바퀴로 이어져 끝없이 넘어간다
+// 5. 자동 넘김: 1초 머문 뒤 천천히 다음 룩으로 (조작하면 3초 쉼)
+// 6. 끄는 동안은 손가락을 그대로 따라가고, 놓으면 가장 가까운 룩으로 맞춘다. p는 목표를 지수 감쇠로 따라감
+// 7. 상품 열은 12장이 한 바퀴로 이어져 끝없이 넘어간다
 //
 // 쇼핑몰 홈에 넣으면서 바꾼 점
 // - 원본 상단 헤더(로고·탭·로그인·장바구니)는 넣지 않음: 사이트 공통 헤더가 같은 역할을 하고, 원본 링크는 전부 '#'(가짜)
@@ -42,6 +43,12 @@ const KH = [1.18, .832, .574, .436, .334, .258, .19]
 const KB = [0, 0, 1.5, 4, 8, 12, 17]
 const KO = [1, 1, 1, 1, .86, .5, 0]
 const N = LOOKS.length
+// 자동 넘김: 멈춘 상태로 1초 머문 뒤 다음 룩으로. 손으로 넘길 때(.0072)보다 느린 감쇠로 천천히 이동
+// 사용자가 끌기·휠·방향키로 조작하면 3초간 자동 넘김을 쉬어 손과 부딪히지 않게 한다
+const AUTO_DWELL_MS = 1000
+const AUTO_RATE = .0024
+const HAND_RATE = .0072
+const AUTO_RESUME_MS = 3000
 
 const wrap = (x: number, n: number) => ((x % n) + n) % n
 const clamp = (x: number, a: number, b: number) => Math.min(b, Math.max(a, x))
@@ -109,11 +116,19 @@ const MaisonVellHero: React.FC = () => {
         let mx = 0, my = 0, cx = 0, cy = 0, down = false, sx = 0, st = 0, moved = 0
         let wheelT: ReturnType<typeof setTimeout> | undefined
         let raf = 0
+        let rate = HAND_RATE, settledAt = 0, holdUntil = 0
+        const handOn = () => { rate = HAND_RATE; holdUntil = performance.now() + AUTO_RESUME_MS }
         const frame = (now: number) => {
             const dt = Math.min(50, now - last) || 16; last = now
             const was = p
-            if (calm) p = target; else p += (target - p) * (1 - Math.exp(-dt * .0072))
+            if (calm) p = target; else p += (target - p) * (1 - Math.exp(-dt * rate))
             if (Math.abs(target - p) < .0004) p = target
+            // 자동 넘김 ('움직임 줄이기' 설정이면 하지 않음)
+            // 눈에 띄는 움직임이 끝난 시점(남은 거리 0.01 미만)부터 1초를 센다 — 정확히 멈출 때까지 기다리면 꼬리가 길어 2초 넘게 멈춰 보임
+            if (!calm && !down && Math.abs(target - p) < .01) {
+                if (!settledAt) settledAt = now
+                if (now - settledAt >= AUTO_DWELL_MS && now >= holdUntil) { rate = AUTO_RATE; target = Math.round(target) + 1; settledAt = 0 }
+            } else settledAt = 0
             if (p !== was || dirty) { dirty = false; paint() }
             cx += (mx - cx) * .32; cy += (my - cy) * .32
             ring.style.transform = `translate3d(${cx.toFixed(1)}px,${cy.toFixed(1)}px,0)`
@@ -130,11 +145,11 @@ const MaisonVellHero: React.FC = () => {
         }
         const onDown = (e: PointerEvent) => {
             if ((e.target as Element).closest('a')) return
-            down = true; sx = e.clientX; st = target; moved = 0; stage.setPointerCapture(e.pointerId); ring.classList.add('drag')
+            handOn(); down = true; sx = e.clientX; st = target; moved = 0; stage.setPointerCapture(e.pointerId); ring.classList.add('drag')
         }
         const release = (e: PointerEvent) => {
             if (!down) return
-            down = false; ring.classList.remove('drag')
+            down = false; ring.classList.remove('drag'); handOn()
             if (moved < 6) {
                 // 거의 움직이지 않은 누름 = 줄 서 있는 모델을 눌러 그 룩으로 이동
                 const hit = document.elementsFromPoint(e.clientX, e.clientY).find((x) => x.classList?.contains('mv-m')) as HTMLElement | undefined
@@ -143,10 +158,11 @@ const MaisonVellHero: React.FC = () => {
         }
         const onWheel = (e: WheelEvent) => {
             if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return // 세로 휠은 페이지 스크롤
-            e.preventDefault(); target += clamp(e.deltaX, -120, 120) / 420
+            e.preventDefault(); handOn(); target += clamp(e.deltaX, -120, 120) / 420
             clearTimeout(wheelT); wheelT = setTimeout(() => { target = Math.round(target) }, 150)
         }
         const onKey = (e: KeyboardEvent) => {
+            if (['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(e.key)) handOn()
             if (['ArrowRight', 'ArrowDown'].includes(e.key)) { e.preventDefault(); target = Math.round(target) + 1 }
             if (['ArrowLeft', 'ArrowUp'].includes(e.key)) { e.preventDefault(); target = Math.round(target) - 1 }
         }
