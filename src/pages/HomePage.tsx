@@ -1,6 +1,7 @@
 import React from 'react'
 import HeroBanner from '../components/HeroBanner'
 import KairnHero from '../components/home/KairnHero'
+import MaisonVellHero from '../components/home/MaisonVellHero'
 import TrendingNow from '../components/home/TrendingNow'
 import FloorDirectory from '../components/home/FloorDirectory'
 import EditorialFeature from '../components/home/EditorialFeature'
@@ -12,7 +13,7 @@ import { BRAND_AVENUE, HOME_HERO } from '../config/site'
 // 이전: 히어로 + Weekly Focus 한 덩어리(같은 크기 카드 나열, 상품 4개씩 페이지 넘김)
 const HomePage: React.FC = () => (
   <div className="w-full bg-etage-paper">
-    {HOME_HERO === 'kairn' ? <KairnHero /> : <HeroBanner />}
+    {HOME_HERO === 'vell' ? <MaisonVellHero /> : HOME_HERO === 'kairn' ? <KairnHero /> : <HeroBanner />}
     <TrendingNow />
     <FloorDirectory />
     <EditorialFeature />
