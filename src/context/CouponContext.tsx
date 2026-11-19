@@ -1,20 +1,21 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { Coupon, CouponUsage } from '../types'
+// 쿠폰: DB(user_coupons + coupons)에서 읽기만 한다.
+// 이전에는 localStorage에 쿠폰을 만들고 사용 표시도 브라우저가 했다 → 위조 가능해서 결제 금액에 반영하지 못했다.
+// 지금은 발급·사용·복구를 모두 서버(place_order, 트리거)가 하고, 여기서는 목록 표시와 '예상 할인액' 계산만 한다.
+// 실제 할인 금액은 서버가 다시 계산한 orders.total_amount로 결제된다.
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react'
+import { Coupon } from '../types'
 import { useUser } from './UserContext'
+import { supabase } from '../services/supabase'
 
 interface CouponContextType {
   selectedCoupon: Coupon | null
-  availableCoupons: Coupon[]
+  availableCoupons: Coupon[] // 미사용 (기간 만료 포함, 화면에서 남은 일수로 구분)
   usedCoupons: Coupon[]
-  userCoupons: Coupon[]
-  userCouponUsages: CouponUsage[]
   selectCoupon: (coupon: Coupon | null) => void
   clearSelectedCoupon: () => void
-  applyCoupon: (couponId: string, orderId: string, discountAmount: number) => void
-  getAvailableCoupons: (totalAmount: number) => Coupon[]
+  getAvailableCoupons: (totalAmount: number) => Coupon[] // 이 금액으로 지금 쓸 수 있는 쿠폰
   calculateDiscount: (coupon: Coupon, totalAmount: number) => number
-  addTestCoupons: () => void
-  loadUserCoupons: () => void
+  loadUserCoupons: () => Promise<void>
 }
 
 const CouponContext = createContext<CouponContextType | undefined>(undefined)
@@ -27,200 +28,106 @@ export const useCouponContext = () => {
   return context
 }
 
-interface CouponProviderProps {
-  children: ReactNode
+interface UserCouponRow {
+  id: number
+  user_id: string
+  issued_at: string
+  expires_at: string
+  used_at: string | null
+  order_id: string | null
+  coupons: {
+    name: string
+    description: string
+    discount_type: 'FIXED' | 'PERCENT'
+    discount_value: number
+    min_order_amount: number
+    max_discount: number | null
+    is_active: boolean
+  } | null
 }
 
-export const CouponProvider: React.FC<CouponProviderProps> = ({ children }) => {
+const toCoupon = (row: UserCouponRow): Coupon | null => {
+  const c = row.coupons
+  if (!c) return null
+  return {
+    id: String(row.id), // 발급 쿠폰(user_coupons) id — 주문 시 서버에 이 값을 보낸다
+    name: c.name,
+    type: c.discount_type === 'FIXED' ? 'discount' : 'percentage',
+    value: c.discount_value,
+    minAmount: c.min_order_amount,
+    maxDiscount: c.max_discount ?? undefined,
+    restrictions: c.description,
+    usagePeriod: { start: row.issued_at, end: row.expires_at },
+    isUsed: row.used_at !== null,
+    isActive: c.is_active,
+    usedAt: row.used_at ?? undefined,
+    orderId: row.order_id ?? undefined,
+    userId: row.user_id,
+    createdAt: row.issued_at,
+  }
+}
+
+// 서버 private.coupon_discount와 같은 규칙 (원 단위 내림, 상품 합계를 넘지 않음)
+const calculateDiscount = (coupon: Coupon, totalAmount: number): number => {
+  const raw =
+    coupon.type === 'discount'
+      ? coupon.value
+      : Math.min(Math.floor((totalAmount * coupon.value) / 100), coupon.maxDiscount ?? Infinity)
+  return Math.max(0, Math.min(raw, totalAmount))
+}
+
+export const CouponProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { currentUser } = useUser()
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null)
-  const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([])
-  const [usedCoupons, setUsedCoupons] = useState<Coupon[]>([])
-  const [userCoupons, setUserCoupons] = useState<Coupon[]>([])
-  const [userCouponUsages, setUserCouponUsages] = useState<CouponUsage[]>([])
+  const [coupons, setCoupons] = useState<Coupon[]>([])
+  const userId = currentUser?.id
 
-  // 사용자 쿠폰 데이터 로드 함수
-  const loadUserCoupons = () => {
-    if (currentUser) {
-      // localStorage에서 사용자별 쿠폰 데이터 로드
-      const userCoupons = JSON.parse(localStorage.getItem(`coupons_${currentUser.id}`) || '[]')
-      const userCouponUsages = JSON.parse(localStorage.getItem(`coupon_usages_${currentUser.id}`) || '[]')
-      
-      setUserCoupons(userCoupons)
-      setUserCouponUsages(userCouponUsages)
-      
-      // 사용 가능한 쿠폰과 사용한 쿠폰 분리
-      const available = userCoupons.filter((coupon: Coupon) => !coupon.isUsed)
-      const used = userCoupons.filter((coupon: Coupon) => coupon.isUsed)
-      
-      setAvailableCoupons(available)
-      setUsedCoupons(used)
+  // useCallback: 쿠폰 페이지가 effect 의존성으로 쓰므로, 매 렌더 새 함수가 되면 무한 재조회가 된다
+  const loadUserCoupons = useCallback(async () => {
+    if (!userId) {
+      setCoupons([])
+      return
     }
-  }
+    const { data, error } = await supabase
+      .from('user_coupons')
+      .select('id, user_id, issued_at, expires_at, used_at, order_id, coupons(name, description, discount_type, discount_value, min_order_amount, max_discount, is_active)')
+      .eq('user_id', userId)
+      .order('expires_at', { ascending: true })
+    if (error) {
+      console.error('쿠폰 조회 실패:', error.message)
+      return
+    }
+    setCoupons(((data ?? []) as unknown as UserCouponRow[]).map(toCoupon).filter((c): c is Coupon => c !== null))
+  }, [userId])
 
-  // 사용자 쿠폰 데이터 로드
   useEffect(() => {
+    setSelectedCoupon(null)
     loadUserCoupons()
-  }, [currentUser])
+  }, [loadUserCoupons])
 
-  // 쿠폰 선택
-  const selectCoupon = (coupon: Coupon | null) => {
-    setSelectedCoupon(coupon)
-  }
+  const availableCoupons = useMemo(() => coupons.filter((c) => !c.isUsed), [coupons])
+  const usedCoupons = useMemo(() => coupons.filter((c) => c.isUsed), [coupons])
 
-  // 선택된 쿠폰 초기화
-  const clearSelectedCoupon = () => {
-    setSelectedCoupon(null)
-  }
-
-  // 쿠폰 사용 (결제 완료 후 호출)
-  const applyCoupon = (couponId: string, orderId: string, discountAmount: number) => {
-    if (!currentUser) return
-
-    // 쿠폰 상태 업데이트
-    const updatedCoupons = userCoupons.map((coupon: Coupon) => {
-      if (coupon.id === couponId) {
-        return {
-          ...coupon,
-          isUsed: true,
-          usedAt: new Date().toISOString(),
-          orderId
-        }
-      }
-      return coupon
-    })
-
-    // 쿠폰 사용 기록 추가
-    const couponUsage: CouponUsage = {
-      id: `usage_${Date.now()}`,
-      couponId,
-      userId: currentUser.id,
-      orderId,
-      usedAt: new Date().toISOString(),
-      discountAmount
-    }
-
-    const updatedUserCouponUsages = [...userCouponUsages, couponUsage]
-
-    // 로컬스토리지 업데이트
-    localStorage.setItem(`coupons_${currentUser.id}`, JSON.stringify(updatedCoupons))
-    localStorage.setItem(`coupon_usages_${currentUser.id}`, JSON.stringify(updatedUserCouponUsages))
-
-    // 상태 업데이트
-    setUserCoupons(updatedCoupons)
-    setUserCouponUsages(updatedUserCouponUsages)
-    setSelectedCoupon(null)
-    
-    // 사용 가능한 쿠폰과 사용한 쿠폰 분리
-    const available = updatedCoupons.filter((coupon: Coupon) => !coupon.isUsed)
-    const used = updatedCoupons.filter((coupon: Coupon) => coupon.isUsed)
-    
-    setAvailableCoupons(available)
-    setUsedCoupons(used)
-  }
-
-  // 사용 가능한 쿠폰 조회 (최소 구매 금액 조건 확인)
-  const getAvailableCoupons = (totalAmount: number) => {
-    if (!currentUser) return []
-
-    const availableCoupons = userCoupons.filter((coupon: Coupon) => {
-      const now = new Date()
-      const startDate = new Date(coupon.usagePeriod.start)
-      const endDate = new Date(coupon.usagePeriod.end)
-      
-      const isNotUsed = !coupon.isUsed
-      const meetsMinAmount = totalAmount >= coupon.minAmount
-      const isWithinPeriod = now >= startDate && now <= endDate
-      
-      return isNotUsed && meetsMinAmount && isWithinPeriod
-    })
-    
-    return availableCoupons
-  }
-
-  // 할인 금액 계산
-  const calculateDiscount = (coupon: Coupon, totalAmount: number): number => {
-    if (coupon.type === 'discount') {
-      return Math.min(coupon.value, totalAmount)
-    } else if (coupon.type === 'percentage') {
-      const discount = (totalAmount * coupon.value) / 100
-      return coupon.maxDiscount ? Math.min(discount, coupon.maxDiscount) : discount
-    }
-    return 0
-  }
-
-  // 초기 쿠폰 데이터 생성 (테스트용)
-  const addTestCoupons = () => {
-    if (!currentUser) return
-
-    // FAMILY 등급 사용자에게 제공되는 쿠폰 데이터
-    const testCoupons: Coupon[] = [
-      {
-        id: 'coupon_1',
-        name: '첫 구매 웰컴 쿠폰',
-        type: 'discount',
-        value: 15000, // 15,000원 할인
-        minAmount: 50000, // 50,000원 이상 구매시
-        restrictions: '50,000원 이상 구매시 사용 가능 (일부 브랜드 및 일부 상품 제외)',
-        usagePeriod: {
-          start: '2025-01-01T00:00:00.000Z',
-          end: '2025-12-31T23:59:59.999Z'
-        },
-        isUsed: false,
-        userId: currentUser.id,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'coupon_2',
-        name: '1회 무료배송 쿠폰',
-        type: 'discount',
-        value: 3000, // 3,000원 할인 (배송비 상당)
-        minAmount: 0, // 구매 금액 제한 없음
-        restrictions: '모든 상품 구매시 사용 가능 (배송비 무료)',
-        usagePeriod: {
-          start: '2025-01-01T00:00:00.000Z',
-          end: '2025-12-31T23:59:59.999Z'
-        },
-        isUsed: false,
-        userId: currentUser.id,
-        createdAt: new Date().toISOString()
-      }
-    ]
-
-    localStorage.setItem(`coupons_${currentUser.id}`, JSON.stringify(testCoupons))
-    console.log('새로운 쿠폰 데이터를 생성했습니다:', testCoupons)
-
-    setUserCoupons(testCoupons)
-    
-    // 사용 가능한 쿠폰과 사용한 쿠폰 분리
-    const available = testCoupons.filter((coupon: Coupon) => !coupon.isUsed)
-    const used = testCoupons.filter((coupon: Coupon) => coupon.isUsed)
-    
-    setAvailableCoupons(available)
-    setUsedCoupons(used)
-    
-    // 페이지 로드 시 선택된 쿠폰 초기화
-    setSelectedCoupon(null)
-  }
+  const getAvailableCoupons = useCallback(
+    (totalAmount: number) => {
+      const now = Date.now()
+      return availableCoupons.filter(
+        (c) => c.isActive !== false && totalAmount >= c.minAmount && now <= new Date(c.usagePeriod.end).getTime()
+      )
+    },
+    [availableCoupons]
+  )
 
   const value: CouponContextType = {
     selectedCoupon,
     availableCoupons,
     usedCoupons,
-    userCoupons,
-    userCouponUsages,
-    selectCoupon,
-    clearSelectedCoupon,
-    applyCoupon,
+    selectCoupon: setSelectedCoupon,
+    clearSelectedCoupon: () => setSelectedCoupon(null),
     getAvailableCoupons,
     calculateDiscount,
-    addTestCoupons,
-    loadUserCoupons
+    loadUserCoupons,
   }
 
-  return (
-    <CouponContext.Provider value={value}>
-      {children}
-    </CouponContext.Provider>
-  )
+  return <CouponContext.Provider value={value}>{children}</CouponContext.Provider>
 }

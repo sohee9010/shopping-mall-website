@@ -13,7 +13,7 @@ const CheckoutPage: React.FC = () => {
     const location = useLocation()
     const navigate = useNavigate()
     const { cartItems, selectedItems, getSelectedTotalPrice, formatPrice } = useCartContext()
-    const { selectedCoupon, selectCoupon, getAvailableCoupons, calculateDiscount } = useCouponContext()
+    const { selectedCoupon, selectCoupon, getAvailableCoupons, calculateDiscount, loadUserCoupons } = useCouponContext()
     const { currentUser } = useUser()
 
     const [customerInfo, setCustomerInfo] = useState({
@@ -80,17 +80,16 @@ const CheckoutPage: React.FC = () => {
 
     // 쿠폰 할인 적용
     const availableCoupons = getAvailableCoupons(totalPrice)
+    // 표시용 예상 금액. 실제 결제 금액은 서버(place_order)가 같은 규칙으로 다시 계산한 값을 쓴다
     const discountAmount = selectedCoupon ? calculateDiscount(selectedCoupon, totalPrice) : 0
     const finalPrice = totalPrice + shippingFee - discountAmount
 
-    // 디버깅을 위한 로그
+    // 장바구니에서 고른 쿠폰이 이 주문 금액으로는 쓸 수 없으면(최소 금액 미달·만료) 선택을 해제한다
     useEffect(() => {
-        console.log('결제 페이지 로드됨')
-        console.log('선택된 쿠폰:', selectedCoupon)
-        console.log('총 주문 금액:', totalPrice)
-        console.log('할인 금액:', discountAmount)
-        console.log('최종 결제 금액:', finalPrice)
-    }, [selectedCoupon, totalPrice, discountAmount, finalPrice])
+        if (selectedCoupon && !availableCoupons.some((c) => c.id === selectedCoupon.id)) {
+            selectCoupon(null)
+        }
+    }, [selectedCoupon, availableCoupons, selectCoupon])
 
     if (orderItems.length === 0) {
         return (
@@ -173,11 +172,6 @@ const CheckoutPage: React.FC = () => {
             return
         }
 
-        // 쿠폰은 아직 브라우저에만 저장되어 있어 서버가 검증할 수 없으므로 결제 금액에 반영하지 않는다 (쿠폰 DB화 예정)
-        if (selectedCoupon && !confirm('현재 쿠폰 할인은 결제 금액에 반영되지 않습니다. 할인 없이 결제를 진행할까요?')) {
-            return
-        }
-
         setIsProcessing(true)
         let pendingOrderId: string | null = null
 
@@ -187,15 +181,23 @@ const CheckoutPage: React.FC = () => {
                 : `${orderItems[0].product.name} 외 ${orderItems.length - 1}건`
 
             // 1. 결제 전에 '결제대기' 주문을 서버에서 만든다 (재고 확보 + 서버가 금액 계산)
-            const pendingOrder = await createOrder(createOrderData(currentUser.id))
-            if (!pendingOrder?.id) {
-                alert('주문을 생성하지 못했습니다. 재고가 부족하거나 일시적인 오류일 수 있습니다.')
+            //    쿠폰은 발급 쿠폰 id만 보내고, 할인액 계산·사용 처리는 서버가 같은 트랜잭션에서 한다
+            const result = await createOrder(createOrderData(currentUser.id), selectedCoupon ? Number(selectedCoupon.id) : null)
+            if (!result.ok || !result.order.id) {
+                if (!result.ok && result.hint.startsWith('COUPON_')) {
+                    alert(`쿠폰을 적용할 수 없습니다: ${result.message}`)
+                    selectCoupon(null)
+                    loadUserCoupons()
+                } else {
+                    alert('주문을 생성하지 못했습니다. 재고가 부족하거나 일시적인 오류일 수 있습니다.')
+                }
                 return
             }
+            const pendingOrder = { ...result.order, id: result.order.id }
             pendingOrderId = pendingOrder.id
 
-            // 2. 결제 성공 후 쿠폰 사용 표시용 정보만 임시 저장 (주문 데이터는 이미 서버에 있다)
-            sessionStorage.setItem('pendingPayment', JSON.stringify({ orderId: pendingOrder.id, selectedCoupon, discountAmount }))
+            // 2. 결제창에서 돌아왔을 때 실패 페이지가 정리할 수 있도록 주문 id만 임시 저장
+            sessionStorage.setItem('pendingPayment', JSON.stringify({ orderId: pendingOrder.id }))
 
             const cleanPhone = customerInfo.phone.replace(/[^0-9]/g, '')
 
@@ -229,8 +231,9 @@ const CheckoutPage: React.FC = () => {
             // 결제창을 닫았거나(USER_CANCEL) 결제창 호출에 실패: 확보해 둔 재고를 돌려놓는다
             console.error('결제 요청 실패:', error)
             if (pendingOrderId) {
-                await cancelPendingOrder(pendingOrderId)
+                await cancelPendingOrder(pendingOrderId) // 서버 트리거가 재고와 쿠폰을 함께 되돌린다
                 sessionStorage.removeItem('pendingPayment')
+                loadUserCoupons()
             }
             const code = (error as { code?: string })?.code
             if (code !== 'USER_CANCEL') {

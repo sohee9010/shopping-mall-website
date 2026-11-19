@@ -23,7 +23,7 @@ const PaymentSuccessPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const hasProcessedRef = useRef(false) // StrictMode 등으로 effect가 두 번 실행돼도 승인 요청은 한 번만
-  const { applyCoupon } = useCouponContext()
+  const { clearSelectedCoupon, loadUserCoupons } = useCouponContext()
   const { clearCart } = useCartContext()
 
   useEffect(() => {
@@ -58,13 +58,10 @@ const PaymentSuccessPage: React.FC = () => {
         approvedAt: order.updated_at ?? new Date().toISOString(),
       })
 
-      // 쿠폰은 아직 브라우저에만 저장되어 있어(서버 검증 불가) 결제 금액에는 반영하지 않고 사용 표시만 한다
-      const pending = sessionStorage.getItem('pendingPayment')
-      if (pending) {
-        const { selectedCoupon, discountAmount } = JSON.parse(pending)
-        if (selectedCoupon) applyCoupon(selectedCoupon.id, orderId, discountAmount ?? 0)
-        sessionStorage.removeItem('pendingPayment')
-      }
+      // 쿠폰 사용 처리는 주문 생성 때 서버가 이미 했다. 화면의 선택만 비우고 목록을 다시 읽는다
+      sessionStorage.removeItem('pendingPayment')
+      clearSelectedCoupon()
+      loadUserCoupons()
 
       clearCart()
       setLoading(false)

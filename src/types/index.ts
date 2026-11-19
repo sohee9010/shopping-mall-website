@@ -70,17 +70,9 @@ export interface Coupon {
     end: string
   }
   isUsed: boolean
+  isActive?: boolean // 정책이 사용 중지되면 false
   usedAt?: string
   orderId?: string
   userId: string
   createdAt: string
-}
-
-export interface CouponUsage {
-  id: string
-  couponId: string
-  userId: string
-  orderId: string
-  usedAt: string
-  discountAmount: number
 }

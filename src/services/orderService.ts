@@ -37,7 +37,8 @@ export interface Order {
   order_date: string
   // 결제대기 -> 결제완료(승인) | 결제실패(승인 거절) | 결제취소(결제창에서 취소)
   status: '결제대기' | '결제실패' | '결제취소' | '주문접수' | '결제완료' | '상품준비' | '부분배송' | '배송중' | '배송완료' | '취소요청' | '주문취소' | '반품신청' | '반품완료'
-  total_amount: number
+  total_amount: number // 결제 금액 = 상품 합계 + 배송비 - 할인 (서버 계산)
+  discount_amount?: number // 쿠폰 할인 금액 (서버 계산)
   payment_method: string
   payment_key?: string
   items: OrderItem[]
@@ -87,7 +88,13 @@ export const cancelPendingOrder = async (orderId: string): Promise<void> => {
 //   - 재고는 "남은 재고 >= 주문 수량"일 때만 차감되어, 동시에 주문해도 재고보다 많이 팔리지 않는다
 //   - 재고가 부족하면 주문 전체가 취소되고 오류가 반환된다
 // 이전에는 클라이언트가 주문을 insert한 뒤 재고를 조회 -> 계산 -> UPDATE 해서 초과 판매가 발생했다
-export const createOrder = async (orderData: Omit<Order, 'id' | 'created_at' | 'updated_at'>): Promise<Order | null> => {
+//   - 쿠폰은 발급 쿠폰 id만 보낸다. 서버가 본인 쿠폰·미사용·기간·최소 금액을 확인하고 할인액을 계산해 사용 처리한다
+export type CreateOrderResult = { ok: true; order: Order } | { ok: false; hint: string; message: string }
+
+export const createOrder = async (
+  orderData: Omit<Order, 'id' | 'created_at' | 'updated_at'>,
+  userCouponId: number | null = null
+): Promise<CreateOrderResult> => {
   try {
     const { data, error } = await supabase.rpc('place_order', {
       // 서버는 variant_id(SKU)로 재고를 차감하고 가격·옵션을 DB에서 다시 읽는다
@@ -100,18 +107,19 @@ export const createOrder = async (orderData: Omit<Order, 'id' | 'created_at' | '
       p_recipient_name: orderData.recipient_name,
       p_recipient_phone: orderData.recipient_phone,
       p_payment_method: orderData.payment_method,
+      p_user_coupon_id: userCouponId,
     })
 
     if (error) {
-      // 재고 부족은 hint = 'OUT_OF_STOCK' 으로 구분된다
+      // 실패 사유는 hint로 구분된다: OUT_OF_STOCK(재고 부족), COUPON_USED·COUPON_EXPIRED·COUPON_MIN_AMOUNT·COUPON_INVALID(쿠폰)
       console.error('주문 생성 오류:', error.message, error.hint ?? '')
-      return null
+      return { ok: false, hint: error.hint ?? '', message: error.message }
     }
 
-    return data as Order
+    return { ok: true, order: data as Order }
   } catch (error) {
     console.error('주문 생성 중 예외 발생:', error)
-    return null
+    return { ok: false, hint: '', message: '주문 생성 중 오류가 발생했습니다' }
   }
 }
 
