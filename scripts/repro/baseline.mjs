@@ -666,6 +666,41 @@ await check('P27', '고객의 반품 신청을 처리할 방법이 없음',
     }
   })
 
+// P28: 대시보드 매출을 화면에서 계산하면서 주문 상태를 보지 않는다
+//   본사 '이번 달 매출'(src/admin/hq/pages/HQDashboard.js:86-95)은 이번 달 orders.total_amount를 모두 더한다
+//   → 결제대기(돈이 안 들어온) 주문·취소된 주문도 매출로 잡힌다
+async function hqMonthRevenue(hq) {
+  const { data, error } = await hq.rpc('hq_dashboard')
+  if (!error) return data.month.revenue
+  if (error.code !== 'PGRST202') throw new Error(error.message)
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
+  const { data: rows } = await hq.from('orders').select('total_amount').gte('created_at', monthStart)
+  return (rows ?? []).reduce((s, o) => s + (o.total_amount || 0), 0)
+}
+await check('P28', '결제되지 않은 주문·취소된 주문이 대시보드 매출에 포함',
+  'src/admin/hq/pages/HQDashboard.js:82-95 (이번 달 orders.total_amount 합계, 상태 무관), src/services/dashboardService.ts (화면에서 집계)',
+  '매출은 결제가 완료되고 취소·반품되지 않은 상품 금액만이어야 한다',
+  async () => {
+    const { client: hq } = await login('hq@etage.test')
+    const before = await hqMonthRevenue(hq)
+    // 결제창에 들어갔다가 결제하지 않은 주문 (결제대기)
+    const { client, user } = await login('vip@etage.test')
+    const coat = await productByName(client, 'LUNELLE 캐시미어 라운드넥 니트')
+    const placed = await createOrderAsApp(client, {
+      user_id: user.id, total_amount: 0, payment_method: '카드',
+      items: [{ product_id: coat.id, name: coat.name, price: coat.price, quantity: 1, brand: coat.brand }],
+      shipping_address: '재현 실험', recipient_name: '재현', recipient_phone: '010-0000-0000',
+    })
+    if (!placed.ok) throw new Error(`주문 실패: ${placed.error}`)
+    const after = await hqMonthRevenue(hq)
+    // 다음 검사를 위해 결제창 취소로 정리 (재고 복구)
+    await client.rpc('cancel_pending_order', { p_order_id: placed.order.id })
+    return {
+      reproduced: after !== before,
+      actual: `결제대기 주문(${placed.order.total_amount.toLocaleString()}원) 생성 → 이번 달 매출 ${before.toLocaleString()}원 → ${after.toLocaleString()}원`,
+    }
+  })
+
 // P25: 상품 상태를 입점사가 정한다 (원본 화면이 등록 시 status='forsale'로 저장, RLS는 브랜드만 검사)
 //   → 본사 검수 없이 쇼핑몰에 바로 노출되고, 검수 대기 상품도 입점사가 스스로 판매중으로 바꾼다
 await check('P25', '입점사가 등록한 상품이 본사 검수 없이 쇼핑몰에 노출',
@@ -1088,6 +1123,46 @@ await works('반품: 거부하면 배송완료로, 승인(환불)하면 반품�
       payment === 'CANCELED' && after.stock === before.stock && after.sales === before.sales - 1,
     detail: `거부 → ${rejected.error ? '실패: ' + rejected.error.message : rejected.data}, 승인 → ${approved?.error ? '실패: ' + approved.error.message : approved?.data}, ` +
       `줄 ${lines.map((l) => l.status).join(', ')}, 결제 기록 '${payment}', 재고 ${before.stock} → ${after.stock}, 판매량 ${before.sales} → ${after.sales}`,
+  }
+})
+
+// ---- 대시보드 집계(0015) 이후에만 의미가 있는 확인 ----
+const hasDashboard = (await newClient().rpc('hq_dashboard')).error?.code !== 'PGRST202'
+
+await works('대시보드: 결제된 주문은 입점사·본사 오늘 매출에 더해지고, 취소되면 빠짐', async () => {
+  if (!hasDashboard) return { ok: true, detail: '0015 이전 구조 — 해당 없음' }
+  const { client: lunelle } = await login('lunelle@etage.test')
+  const { client: hq } = await login('hq@etage.test')
+  const today = async () => ({
+    m: (await lunelle.rpc('merchant_dashboard')).data.today,
+    h: (await hq.rpc('hq_dashboard')).data.today,
+  })
+  const before = await today()
+  const { customer, orderId, knit } = await placePaidLunelleOrder()
+  const paid = await today()
+  await customer.from('orders').update({ status: '취소요청', cancel_reason: '정상 확인' }).eq('id', orderId)
+  await approveWithRefundForTest(lunelle, orderId)
+  const canceled = await today()
+  const ok = paid.m.revenue - before.m.revenue === knit.price && paid.h.revenue - before.h.revenue === knit.price &&
+    paid.m.orders === before.m.orders + 1 && canceled.m.revenue === before.m.revenue && canceled.h.revenue === before.h.revenue
+  return {
+    ok,
+    detail: `입점사 오늘 매출 ${before.m.revenue.toLocaleString()} → 결제 후 ${paid.m.revenue.toLocaleString()} → 취소 후 ${canceled.m.revenue.toLocaleString()}원, ` +
+      `본사 ${before.h.revenue.toLocaleString()} → ${paid.h.revenue.toLocaleString()} → ${canceled.h.revenue.toLocaleString()}원 (상품가 ${knit.price.toLocaleString()}원)`,
+  }
+})
+await works('대시보드: 입점사는 자기 브랜드만, 본사 집계는 본사만 조회', async () => {
+  if (!hasDashboard) return { ok: true, detail: '0015 이전 구조 — 해당 없음' }
+  const { client: lunelle } = await login('lunelle@etage.test')
+  const { client: customer } = await login('customer@etage.test')
+  const m = await lunelle.rpc('merchant_dashboard')
+  const lunelleHq = await lunelle.rpc('hq_dashboard')
+  const customerM = await customer.rpc('merchant_dashboard')
+  const names = (m.data?.top_products ?? []).map((p) => p.name)
+  const ok = !m.error && names.every((n) => n.startsWith('LUNELLE')) && !!lunelleHq.error && !!customerM.error
+  return {
+    ok,
+    detail: `입점사 인기 상품 [${names.join(', ') || '없음'}], 입점사의 본사 집계 ${lunelleHq.error ? '거부' : '허용(문제)'}, 고객의 입점사 집계 ${customerM.error ? '거부' : '허용(문제)'}`,
   }
 })
 
