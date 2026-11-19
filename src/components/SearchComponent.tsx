@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import ProductCard, { ProductGrid } from './product/ProductCard'
+import ProductCard, { ProductGrid, ProductGridSkeleton } from './product/ProductCard'
+import { ArrowDown, ArrowUp, Search } from 'lucide-react'
+import Icon from './Icon'
 import { useSwatches } from '../hooks/useSwatches'
 import { 
   getSearchSuggestions, 
@@ -227,14 +229,15 @@ const SearchComponent: React.FC = () => {
     <div className="max-w-7xl mx-auto px-6 py-8">
       {/* 검색 헤더 */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">
+        <p className="text-[11px] uppercase tracking-label text-etage-muted">Search</p>
+        <h1 className="mt-2 mb-4 font-display text-3xl text-etage-ink md:text-4xl">
           {searchQuery ? `"${searchQuery}" 검색 결과` : '상품 검색'}
         </h1>
         
         {/* 검색 통계: 결과보다 늦게 도착하면 아래 내용 전체를 밀어 내렸다(모바일 56px, CLS 0.046).
             검색어가 있으면 두 줄 높이를 먼저 확보해 두고 문구만 채운다 */}
         {searchQuery && (
-          <div className="mb-4 min-h-[2.5rem] text-sm text-gray-600" aria-live="polite">
+          <div className="mb-4 min-h-[2.5rem] text-sm text-etage-muted" aria-live="polite">
             {searchStats.totalSearches > 0 && (
               <>
                 이 검색어는 총 {searchStats.totalSearches}번 검색되었으며,
@@ -245,38 +248,39 @@ const SearchComponent: React.FC = () => {
         )}
         
         {/* 검색창 */}
-        <form onSubmit={handleSearch} className="relative max-w-2xl">
+        {/* 이전: 둥근 테두리 + 파란 '검색' 버튼(기본 템플릿 느낌) → 헤더 검색창과 같은 밑줄형 + 돋보기 */}
+        <form onSubmit={handleSearch} role="search" className="relative max-w-2xl">
+          <label className="flex items-center gap-3 border-b border-etage-ink/40 pb-2 transition-colors focus-within:border-etage-ink">
+          <span className="sr-only">상품 검색</span>
           <input
             ref={searchInputRef}
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => setShowSuggestions(true)}
-            className="w-full px-6 py-4 text-lg border-2 border-gray-300 rounded-full focus:border-blue-500 focus:outline-none transition-colors"
-            placeholder="찾고 싶은 상품을 검색해보세요..."
+            className="w-full bg-transparent py-2 text-lg text-etage-ink outline-none placeholder:text-etage-muted"
+            placeholder="찾고 싶은 상품을 검색해 보세요"
           />
-          <button
-            type="submit"
-            className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-blue-600 text-white px-6 py-2 rounded-full hover:bg-blue-700 transition-colors"
-          >
-            검색
+          <button type="submit" aria-label="검색" className="p-1 text-etage-ink hover:opacity-70">
+            <Icon as={Search} className="h-5 w-5" />
           </button>
+          </label>
           
           {/* 검색 제안 */}
           {showSuggestions && (suggestions.length > 0 || popularTerms.length > 0 || relatedTerms.length > 0 || userHistory.length > 0) && (
             <div
               ref={suggestionsRef}
-              className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-2 z-50 max-h-96 overflow-y-auto"
+              className="absolute top-full left-0 right-0 z-50 mt-3 max-h-96 overflow-y-auto border border-etage-line bg-etage-paper shadow-xl"
             >
               {/* 검색 제안 */}
               {suggestions.length > 0 && (
-                <div className="p-4 border-b border-gray-100">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2">검색 제안</h3>
+                <div className="p-5 border-b border-etage-line">
+                  <h3 className="mb-2 text-[11px] uppercase tracking-label text-etage-muted">검색 제안</h3>
                   {suggestions.map((suggestion, index) => (
                     <button
                       key={index}
                       onClick={() => handleSuggestionClick(suggestion)}
-                      className="block w-full text-left px-3 py-2 text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                      className="block w-full py-1.5 text-left text-sm text-etage-ink hover:underline"
                     >
                       {suggestion}
                     </button>
@@ -286,14 +290,14 @@ const SearchComponent: React.FC = () => {
               
               {/* 연관 검색어 */}
               {relatedTerms.length > 0 && (
-                <div className="p-4 border-b border-gray-100">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2">연관 검색어</h3>
+                <div className="p-5 border-b border-etage-line">
+                  <h3 className="mb-2 text-[11px] uppercase tracking-label text-etage-muted">연관 검색어</h3>
                   <div className="flex flex-wrap gap-2">
                     {relatedTerms.map((term, index) => (
                       <button
                         key={index}
                         onClick={() => handleRelatedTermClick(term)}
-                        className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm hover:bg-blue-200 transition-colors"
+                        className="border border-etage-line px-3 py-1 text-xs text-etage-ink transition-colors hover:border-etage-ink"
                       >
                         {term}
                       </button>
@@ -304,13 +308,13 @@ const SearchComponent: React.FC = () => {
               
               {/* 사용자 검색 히스토리 */}
               {userHistory.length > 0 && (
-                <div className="p-4 border-b border-gray-100">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2">최근 검색어</h3>
+                <div className="p-5 border-b border-etage-line">
+                  <h3 className="mb-2 text-[11px] uppercase tracking-label text-etage-muted">최근 검색어</h3>
                   {userHistory.map((term, index) => (
                     <button
                       key={index}
                       onClick={() => handleHistoryClick(term)}
-                      className="block w-full text-left px-3 py-2 text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                      className="block w-full py-1.5 text-left text-sm text-etage-ink hover:underline"
                     >
                       {term}
                     </button>
@@ -320,14 +324,14 @@ const SearchComponent: React.FC = () => {
               
               {/* 인기 검색어 */}
               {popularTerms.length > 0 && (
-                <div className="p-4">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2">인기 검색어</h3>
+                <div className="p-5">
+                  <h3 className="mb-2 text-[11px] uppercase tracking-label text-etage-muted">인기 검색어</h3>
                   <div className="flex flex-wrap gap-2">
                     {popularTerms.map((term, index) => (
                       <button
                         key={index}
                         onClick={() => handlePopularTermClick(term)}
-                        className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200 transition-colors"
+                        className="border border-etage-line px-3 py-1 text-xs text-etage-ink transition-colors hover:border-etage-ink"
                       >
                         {term}
                       </button>
@@ -349,7 +353,7 @@ const SearchComponent: React.FC = () => {
               {Object.keys(filters).some(key => key !== 'sortBy' && key !== 'sortOrder' && filters[key as keyof SearchFilters]) && (
                 <button
                   onClick={clearFilters}
-                  className="px-3 py-1 text-sm text-red-600 hover:text-red-700 transition-colors"
+                  className="text-sm text-etage-muted underline underline-offset-4 hover:text-etage-ink"
                 >
                   필터 초기화
                 </button>
@@ -357,12 +361,13 @@ const SearchComponent: React.FC = () => {
             </div>
             
             <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600">총 {resultCount}개 상품</span>
+              <span className="text-sm text-etage-muted">총 {resultCount}개 상품</span>
               
               <select
                 value={filters.sortBy}
                 onChange={(e) => handleFilterChange('sortBy', e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                aria-label="정렬 기준"
+                className="border border-etage-line bg-etage-paper px-3 py-2 text-sm text-etage-ink focus:border-etage-ink focus:outline-none"
               >
                 <option value="sales">인기순</option>
                 <option value="price">가격순</option>
@@ -372,47 +377,48 @@ const SearchComponent: React.FC = () => {
               
               <button
                 onClick={() => handleFilterChange('sortOrder', filters.sortOrder === 'asc' ? 'desc' : 'asc')}
-                className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                aria-label={filters.sortOrder === 'asc' ? '오름차순 (누르면 내림차순)' : '내림차순 (누르면 오름차순)'}
+                className="border border-etage-line p-2 text-etage-ink transition-colors hover:border-etage-ink"
               >
-                {filters.sortOrder === 'asc' ? '↑' : '↓'}
+                <Icon as={filters.sortOrder === 'asc' ? ArrowUp : ArrowDown} className="h-4 w-4" />
               </button>
             </div>
           </div>
 
           {/* 필터 패널 - 항상 표시 */}
-          <div className="mb-6 p-6 bg-gray-50 rounded-lg">
+          <div className="mb-8 border-y border-etage-line py-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* 가격 범위 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">가격 범위</label>
+                <label className="mb-2 block text-[11px] uppercase tracking-label text-etage-muted">가격 범위</label>
                 <div className="flex gap-2">
                   <input
                     type="number"
                     placeholder="최소"
                     value={filters.minPrice || ''}
                     onChange={(e) => handleFilterChange('minPrice', e.target.value ? Number(e.target.value) : undefined)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                    className="min-w-0 flex-1 border border-etage-line bg-etage-paper px-3 py-2 text-sm focus:border-etage-ink focus:outline-none"
                   />
-                  <span className="text-gray-500 self-center">~</span>
+                  <span className="self-center text-etage-muted">~</span>
                   <input
                     type="number"
                     placeholder="최대"
                     value={filters.maxPrice || ''}
                     onChange={(e) => handleFilterChange('maxPrice', e.target.value ? Number(e.target.value) : undefined)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                    className="min-w-0 flex-1 border border-etage-line bg-etage-paper px-3 py-2 text-sm focus:border-etage-ink focus:outline-none"
                   />
                 </div>
               </div>
               
               {/* 브랜드 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">브랜드</label>
+                <label className="mb-2 block text-[11px] uppercase tracking-label text-etage-muted">브랜드</label>
                 <input
                   type="text"
                   placeholder="브랜드명 입력"
                   value={filters.brand || ''}
                   onChange={(e) => handleFilterChange('brand', e.target.value || undefined)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  className="w-full border border-etage-line bg-etage-paper px-3 py-2 text-sm focus:border-etage-ink focus:outline-none"
                 />
               </div>
             </div>
@@ -420,10 +426,7 @@ const SearchComponent: React.FC = () => {
 
           {/* 검색 결과 */}
           {isLoading ? (
-            <div className="text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <p className="mt-2 text-gray-600">검색 중...</p>
-            </div>
+            <ProductGridSkeleton />
           ) : searchResults.length > 0 ? (
             // 원본 카드는 고객에게 판매량·재고 숫자를 그대로 보여 줬다. 재고는 SKU 합계 캐시(0007)라
             // 옵션 상품에서는 '고른 옵션의 재고'와 다르고, 판매량은 운영용 정보라 공통 카드에서는 표시하지 않는다
@@ -434,8 +437,8 @@ const SearchComponent: React.FC = () => {
             </ProductGrid>
           ) : (
             <div className="text-center py-12">
-              <p className="text-gray-600 text-lg">검색 결과가 없습니다.</p>
-              <p className="text-gray-500 mt-2">다른 검색어를 시도해보세요.</p>
+              <p className="text-lg text-etage-ink">검색 결과가 없습니다.</p>
+              <p className="mt-2 text-sm text-etage-muted">다른 검색어를 입력해 보세요.</p>
             </div>
           )}
         </>
