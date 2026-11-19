@@ -11,15 +11,11 @@ import type { AppRole } from '../services/roleService'
 import HQDashboard from './hq/pages/HQDashboard'
 import Tenants from './hq/pages/Tenants'
 import ProductReview from './hq/pages/ProductReview'
-import CustomerServiceHQ from './hq/pages/CustomerService'
+import CustomerService from './shared/pages/CustomerService'
 import DashboardMerchant from './merchant/pages/DashboardMerchant'
 import Products from './merchant/pages/Products'
-import CustomerServiceMerchant from './merchant/pages/CustomerService'
 import Orders from './shared/pages/Orders'
-import NoticeHQ from './shared/pages/Notice'
-import NoticeMerchant from './merchant/pages/Notice'
-import ProfileHQ from './shared/pages/Profile'
-import ProfileMerchant from './merchant/pages/Profile'
+import Profile from './shared/pages/Profile'
 
 export interface AdminPage {
   /** /admin 아래 경로. '' = 대시보드 */
@@ -35,18 +31,16 @@ const HQ_PAGES: AdminPage[] = [
   { path: 'tenants', label: '입점사 관리', element: Tenants, icon: Building2 },
   { path: 'product-management', label: '상품 검수', element: ProductReview, icon: Package },
   { path: 'orders', label: '주문 관리', element: Orders, icon: ShoppingCart },
-  { path: 'customer-service', label: '고객 문의', element: CustomerServiceHQ, icon: MessageSquare },
-  { path: 'notice', label: '공지사항', element: NoticeHQ },
-  { path: 'profile', label: '프로필', element: ProfileHQ },
+  { path: 'customer-service', label: '고객 문의', element: CustomerService, icon: MessageSquare },
+  { path: 'profile', label: '프로필', element: Profile },
 ]
 
 const MERCHANT_PAGES: AdminPage[] = [
   { path: '', label: '대시보드', element: DashboardMerchant, icon: Home },
   { path: 'products', label: '상품 관리', element: Products, icon: Package },
   { path: 'orders', label: '주문 처리', element: Orders, icon: ShoppingCart },
-  { path: 'customer-service', label: '고객 문의', element: CustomerServiceMerchant, icon: MessageSquare },
-  { path: 'notice', label: '공지사항', element: NoticeMerchant },
-  { path: 'profile', label: '프로필', element: ProfileMerchant },
+  { path: 'customer-service', label: '고객 문의', element: CustomerService, icon: MessageSquare },
+  { path: 'profile', label: '프로필', element: Profile },
 ]
 
 export const pagesFor = (role: AppRole): AdminPage[] => (role === 'hq' ? HQ_PAGES : MERCHANT_PAGES)

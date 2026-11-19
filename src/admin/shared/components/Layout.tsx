@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Bell, ChevronDown, LogOut, User } from 'lucide-react'
+import { ChevronDown, LogOut, User } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { SITE } from '../../../config/site'
 import { adminPath, type AdminPage } from '../../navigation'
@@ -63,12 +63,6 @@ const Layout = ({ children, pages }: LayoutProps) => {
           <div className="header-title">{current?.label ?? ''}</div>
 
           <div className="header-actions">
-            {pages.some((p) => p.path === 'notice') && (
-              <Link to="/admin/notice" aria-label="공지사항" className="btn" style={{ background: 'transparent', border: 'none' }}>
-                <Bell size={20} />
-              </Link>
-            )}
-
             <div style={{ position: 'relative' }}>
               <button
                 className="user-info"
