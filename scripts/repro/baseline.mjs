@@ -666,6 +666,66 @@ await check('P27', '고객의 반품 신청을 처리할 방법이 없음',
     }
   })
 
+// P29: 문의 수정 권한이 '행 단위'뿐이라 열을 가리지 않는다
+//   고객 정책은 자기 문의 for all → 답변·상태까지 직접 쓸 수 있고, 입점사 정책은 자기 브랜드 문의 update → 고객의 질문을 고칠 수 있다
+await check('P29', '고객이 자기 문의에 가짜 답변·답변완료를 쓰고, 입점사가 고객의 질문 내용을 고침',
+  '0002 inquiries 정책 "고객 본인 문의"(for all), 0010 "입점사는 자기 브랜드 문의 답변"(update, 열 제한 없음)',
+  '답변·처리 상태는 담당 입점사·본사만, 질문 제목·내용은 작성한 고객만 바꿀 수 있어야 한다',
+  async () => {
+    const { client: customer, user } = await login('customer@etage.test')
+    const knit = await productByName(customer, 'LUNELLE 캐시미어 라운드넥 니트')
+    const { data: inq, error: insErr } = await customer.from('inquiries').insert({
+      user_id: user.id, inquiry_type: '상품', category: '사이즈', title: 'P29 원래 질문', content: '사이즈 문의',
+      email: 'customer@etage.test', product_id: knit.id, product_name: knit.name, product_brand: knit.brand,
+    }).select('id').single()
+    if (insErr) throw new Error(`문의 등록 실패: ${insErr.message}`)
+    const forged = await customer.from('inquiries')
+      .update({ reply_content: '환불해 드리겠습니다 (고객이 직접 쓴 답변)', status: '답변완료' }).eq('id', inq.id).select('id')
+    const { client: lunelle } = await login('lunelle@etage.test')
+    const edited = await lunelle.from('inquiries').update({ title: '입점사가 바꾼 질문' }).eq('id', inq.id).select('id')
+    const { data: now } = await customer.from('inquiries').select('title, status, reply_content').eq('id', inq.id).single()
+    const customerForged = now.status === '답변완료' && !!now.reply_content
+    const merchantEdited = now.title === '입점사가 바꾼 질문'
+    return {
+      reproduced: customerForged || merchantEdited,
+      actual: `고객이 답변·답변완료 직접 저장 → ${forged.error ? '거부' : customerForged ? '성공' : '반영 안 됨'}, ` +
+        `입점사가 질문 제목 수정 → ${edited.error ? '거부' : merchantEdited ? '성공' : '반영 안 됨'} (현재 제목 '${now.title}', 상태 '${now.status}')`,
+    }
+  })
+
+// P30: 입점 승인이 brand_admins.status만 바꾸고 역할(user_roles)을 부여하지 않는다 (앱에는 역할을 쓰는 경로가 없음)
+//   → 입점 신청한 사람이 승인을 받아도 입점사 기능(상품·주문)을 쓸 수 없다
+await check('P30', '입점 신청 → 본사 승인 후에도 신청자가 입점사 기능을 쓸 수 없음',
+  'src/admin/merchant/pages/MerchantRegister.js (signUp + brand_admins 대기 등록), src/admin/hq/pages/Tenants.js:214-250 (승인 = 상태만 변경)',
+  '본사가 입점을 승인하면 신청한 계정이 바로 그 브랜드의 입점사로 상품을 등록하고 주문을 볼 수 있어야 한다',
+  async () => {
+    const stamp = Date.now()
+    const email = `applicant${stamp}@etage.test`
+    const applicant = newClient()
+    const { error: signErr } = await applicant.auth.signUp({ email, password: PASSWORD, options: { data: { name: `신청 ${stamp}`, role: 'merchant' } } })
+    if (signErr) throw new Error(`가입 실패: ${signErr.message}`)
+    const brandName = `NEW${stamp}`
+    const { error: brandErr } = await applicant.from('brand_admins').insert([{
+      name: brandName, business_number: `999-${stamp}`, email, phone: '010-0000-0000', address: '재현',
+    }])
+    if (brandErr) throw new Error(`입점 신청 실패: ${brandErr.message}`)
+    const { client: hq } = await login('hq@etage.test')
+    const { data: brand } = await hq.from('brand_admins').select('id').eq('name', brandName).single()
+    // 승인: 0016 이후는 approve_brand, 그 이전은 원본 화면처럼 상태만 변경
+    const approve = await hq.rpc('approve_brand', { p_brand_id: brand.id })
+    if (approve.error?.code === 'PGRST202') await hq.from('brand_admins').update({ status: 'active' }).eq('id', brand.id)
+    else if (approve.error) throw new Error(`승인 실패: ${approve.error.message}`)
+    const { client: merchant } = await login(email)
+    const role = await merchant.rpc('get_my_role')
+    const orders = await merchant.rpc('merchant_orders')
+    const roleRow = Array.isArray(role.data) ? role.data[0] : role.data
+    const works = roleRow?.role === 'merchant' && !orders.error
+    return {
+      reproduced: !works,
+      actual: `가입 + 입점 신청 → 본사 승인 → 신청자 역할 '${roleRow?.role ?? '없음'}', 주문 조회 ${orders.error ? '거부: ' + orders.error.message : '가능'}`,
+    }
+  })
+
 // P28: 대시보드 매출을 화면에서 계산하면서 주문 상태를 보지 않는다
 //   본사 '이번 달 매출'(src/admin/hq/pages/HQDashboard.js:86-95)은 이번 달 orders.total_amount를 모두 더한다
 //   → 결제대기(돈이 안 들어온) 주문·취소된 주문도 매출로 잡힌다
@@ -1163,6 +1223,45 @@ await works('대시보드: 입점사는 자기 브랜드만, 본사 집계는 �
   return {
     ok,
     detail: `입점사 인기 상품 [${names.join(', ') || '없음'}], 입점사의 본사 집계 ${lunelleHq.error ? '거부' : '허용(문제)'}, 고객의 입점사 집계 ${customerM.error ? '거부' : '허용(문제)'}`,
+  }
+})
+
+// ---- 문의 열 권한·입점 승인(0016) 이후에만 의미가 있는 확인 ----
+const hasAnswer = (await newClient().rpc('answer_inquiry', { p_inquiry_id: 'x', p_reply: 'x' })).error?.code !== 'PGRST202'
+
+await works('문의: 고객이 작성 → 담당 입점사가 답변(answer_inquiry) → 다른 브랜드는 답변 불가, 고객은 답변 확인', async () => {
+  if (!hasAnswer) return { ok: true, detail: '0016 이전 구조 — 해당 없음' }
+  const { client: customer, user } = await login('customer@etage.test')
+  const knit = await productByName(customer, 'LUNELLE 캐시미어 라운드넥 니트')
+  const { data: inq } = await customer.from('inquiries').insert({
+    user_id: user.id, inquiry_type: '상품', category: '사이즈', title: '정상 확인 문의', content: '사이즈 문의',
+    email: 'customer@etage.test', product_id: knit.id, product_name: knit.name, product_brand: knit.brand,
+  }).select('id').single()
+  const { client: greymont } = await login('greymont@etage.test')
+  const other = await greymont.rpc('answer_inquiry', { p_inquiry_id: inq.id, p_reply: '남의 문의 답변 시도' })
+  const { client: lunelle } = await login('lunelle@etage.test')
+  const mine = await lunelle.rpc('answer_inquiry', { p_inquiry_id: inq.id, p_reply: 'M 사이즈를 추천드립니다' })
+  const { data: seen } = await customer.from('inquiries').select('status, reply_content, assigned_to').eq('id', inq.id).single()
+  return {
+    ok: !!other.error && !mine.error && seen.status === '답변완료' && seen.reply_content === 'M 사이즈를 추천드립니다' && seen.assigned_to === 'LUNELLE',
+    detail: `GREYMONT 답변 ${other.error ? '거부' : '성공(문제)'}, LUNELLE 답변 ${mine.error ? '실패: ' + mine.error.message : '성공'}, 고객 화면 '${seen.status}' / 답변자 ${seen.assigned_to}`,
+  }
+})
+await works('입점사 계약 종료(terminate_brand) → 판매 상품 숨김 + 입점사 접근 차단, 재승인 시 복구', async () => {
+  if (!hasAnswer) return { ok: true, detail: '0016 이전 구조 — 해당 없음' }
+  const { client: hq } = await login('hq@etage.test')
+  const { data: brand } = await hq.from('brand_admins').select('id').eq('name', 'GREYMONT').single()
+  const { data: before } = await hq.from('products').select('id, status').eq('brand_id', brand.id)
+  const t = await hq.rpc('terminate_brand', { p_brand_id: brand.id })
+  const { client: greymont } = await login('greymont@etage.test')
+  const blocked = await greymont.rpc('merchant_orders')
+  const a = await hq.rpc('approve_brand', { p_brand_id: brand.id })
+  const again = await greymont.rpc('merchant_orders')
+  // 다음 검사를 위해 상품 상태를 원래대로
+  for (const p of before) await hq.from('products').update({ status: p.status }).eq('id', p.id)
+  return {
+    ok: !t.error && t.data > 0 && !!blocked.error && !a.error && !again.error,
+    detail: `종료 → 상품 ${t.data}개 숨김, 입점사 주문 조회 ${blocked.error ? '차단' : '가능(문제)'}, 재승인 → ${again.error ? '실패: ' + again.error.message : '주문 조회 가능'}`,
   }
 })
 
