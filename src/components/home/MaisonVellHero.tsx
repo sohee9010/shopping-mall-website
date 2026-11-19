@@ -1,8 +1,16 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { Heart } from 'lucide-react'
+import Icon from '../Icon'
+import QuickViewModal from '../product/QuickViewModal'
+import { useWishlistContext } from '../../context/WishlistContext'
+import { supabase } from '../../services/supabase'
+import { formatKRW } from '../../utils/format'
+import { Product } from '../../types'
 import './maison-vell.css'
 
-// 홈 메인 히어로 시안 2: 가상 브랜드 Maison Vell 런웨이 룩북 (사용자 제공 프롬프트를 React로 이식)
+// 홈 메인 히어로: ÉTAGE Spring Summer 2027 런웨이 룩북 (사용자 제공 'Maison Vell' 프롬프트를 React로 이식)
 // 되돌리기: config/site.ts의 HOME_HERO를 'kairn'(시안 1) 또는 'etage'(기존)로 바꾸면 된다
 //
 // 동작 원리 (프롬프트의 6가지 규칙)
@@ -19,23 +27,51 @@ import './maison-vell.css'
 // - 세로 휠은 페이지 스크롤로 둔다: 원본처럼 휠을 전부 가로채면 히어로가 화면을 꽉 채워 아래 매장 내용으로 내려갈 수 없다
 //   → 가로 휠(트랙패드 좌우 밀기)·끌기·방향키로 룩을 넘긴다
 // - 방향키는 히어로에 초점이 있을 때만: 원본은 창 전체에서 가로채 페이지 다른 곳의 키보드 스크롤을 막는다
-// - 상품 카드의 찜(하트)·담기(+)는 DB에 없는 가상 상품이라 실제로 저장할 수 없다 → 하트는 빼고, +는 여성 상품 목록으로 이동
+// - 브랜드 문구를 Maison Vell → ÉTAGE로 (홈 맨 위에 다른 브랜드 이름이 나오지 않게)
+// - 오른쪽 상품 12개는 실제 판매 상품(supabase/seeds/lookbook_products.sql)과 이름으로 연결:
+//   원화 가격, 하트 = 실제 찜, + = Quick View(옵션 선택 후 장바구니), 사진 = 상품 상세
+//   상품을 못 찾으면(조회 실패 등) 사진과 이름만 보여 주고 버튼은 숨긴다 — 누를 수 없는 가짜 버튼을 두지 않음
 const MODELS = 'https://images.higgs.ai/?default=1&output=webp&url=https%3A%2F%2Fd8j0ntlcm91z4.cloudfront.net%2Fuser_38xzZboKViGWJOttwIXH07lWA1P%2Fhf_20261102_042056_1a704ff7-b0e5-4a9f-bbda-62392b819fb6.png&w=3840&q=85'
 const PIECES = 'https://images.higgs.ai/?default=1&output=webp&url=https%3A%2F%2Fd8j0ntlcm91z4.cloudfront.net%2Fuser_38xzZboKViGWJOttwIXH07lWA1P%2Fhf_20261102_042057_080e85b0-b4aa-4072-8eb9-2304c7baf42b.png&w=2400&q=85'
-const SHOP_PATH = '/category/1' // 여성
+const SHOP_PATH = '/category/1' // 여성 (상품을 못 찾았을 때)
 
 // 모델별 시트(960×540) 위 x 범위, 모두 y 48~496
 const LOOKS: [number, number][] = [[12, 176], [178, 330], [331, 470], [476, 633], [634, 767], [767, 956]]
 const Y0 = 48, Y1 = 496, FIRST = 15
-// 상품별 시트(960×720) 위 상자: x0, x1, y0, y1, 이름, 가격
-const ITEMS: [number, number, number, number, string, string][] = [
-    [26, 224, 28, 214, 'Feather Jacket', '$2,900'], [304, 412, 22, 236, 'Satin Wide Leg Trousers', '$1,450'],
-    [530, 666, 12, 242, 'Pleated Dress', '$2,200'], [752, 922, 100, 146, 'Gold Waist Belt', '$420'],
-    [70, 176, 246, 466, 'Satin Trench Dress', '$2,350'], [294, 422, 294, 432, 'Top Handle Bag', '$980'],
-    [508, 688, 240, 452, 'Billow Sleeve Blouse', '$860'], [780, 890, 252, 466, 'Tie Waist Trousers', '$740'],
-    [64, 178, 484, 698, 'Powder Long Coat', '$1,980'], [316, 396, 482, 698, 'Ivory Straight Trousers', '$690'],
-    [530, 672, 508, 682, 'Sculpted Ruffle Top', '$1,120'], [754, 916, 484, 700, 'Pleated Maxi Skirt', '$1,340'],
+// 상품별 시트(960×720) 위 상자 x0, x1, y0, y1 + 실제 상품 이름(lookbook_products.sql과 같아야 함). 룩마다 2개씩 순서대로
+const ITEMS: [number, number, number, number, string][] = [
+    [26, 224, 28, 214, 'LUNELLE 블러시 페더 크롭 재킷'], [304, 412, 22, 236, 'LUNELLE 새틴 와이드 레그 팬츠'],
+    [530, 666, 12, 242, 'SABLE & CO. 세이지 플리츠 롱 원피스'], [752, 922, 100, 146, 'ORBE 골드 메탈 웨이스트 벨트'],
+    [70, 176, 246, 466, 'SABLE & CO. 샴페인 새틴 트렌치 원피스'], [294, 422, 294, 432, 'ATELIER VERO 샴페인 탑 핸들 백'],
+    [508, 688, 247, 452, 'SABLE & CO. 벌룬 슬리브 새틴 블라우스'], [780, 890, 252, 466, 'LUNELLE 타이 웨이스트 와이드 팬츠'],
+    [64, 178, 484, 698, 'LUNELLE 파우더 블루 롱 코트'], [316, 396, 482, 698, 'LUNELLE 아이보리 스트레이트 팬츠'],
+    [530, 672, 508, 682, 'SABLE & CO. 스컬프티드 러플 탑'], [754, 916, 484, 700, 'SABLE & CO. 아이보리 플리츠 맥시 스커트'],
 ]
+
+// 룩북 상품 12개를 이름으로 한 번에 조회 (숨김·검수대기 상품은 RLS가 걸러 준다)
+const fetchLookbookProducts = async (): Promise<Record<string, Product>> => {
+    const { data, error } = await supabase.from('products').select('*').in('name', ITEMS.map((it) => it[4]))
+    if (error) throw error
+    return Object.fromEntries((data ?? []).map((p) => [p.name, { ...p, image: p.image_urls?.[0] ?? '' } as Product]))
+}
+
+// 상품 카드의 찜 버튼 — 다른 상품 카드와 같은 WishlistContext(낙관적 업데이트·실패 시 되돌림)
+const FavButton: React.FC<{ product: Product }> = ({ product }) => {
+    const { isInWishlist, toggleWishlist } = useWishlistContext()
+    const on = isInWishlist(product.id)
+    return (
+        <button
+            type="button"
+            className="mv-fav"
+            aria-pressed={on}
+            aria-label={on ? `${product.name} 찜 해제` : `${product.name} 찜하기`}
+            onClick={() => void toggleWishlist({ id: product.id, name: product.name, price: product.price, brand: product.brand, image: product.image })}
+        >
+            <Icon as={Heart} className="h-full w-full" />
+        </button>
+    )
+}
+
 // 깊이 -1(상품 열 뒤로 퇴장) ~ 5(안개 속에서 등장)의 값표 — 무대 크기 대비 비율
 const KX = [1.2, .744, .496, .346, .235, .15, .085]
 const KF = [1.14, .89, .777, .704, .651, .616, .59]
@@ -66,6 +102,12 @@ const Crop: React.FC<{ href: string; x: number; y: number; w: number; h: number;
     )
 }
 
+// 맨 앞 룩의 첫 상품 상세로. 못 찾으면 여성 목록
+const shopLookPath = (products: Record<string, Product>, look: number) => {
+    const first = products[ITEMS[look * 2][4]]
+    return first ? `/product/${first.id}` : SHOP_PATH
+}
+
 const MaisonVellHero: React.FC = () => {
     const rootRef = useRef<HTMLElement>(null)
     const stageRef = useRef<HTMLElement>(null)
@@ -75,6 +117,9 @@ const MaisonVellHero: React.FC = () => {
     const waitRef = useRef<HTMLDivElement>(null)
     const modelRefs = useRef<HTMLDivElement[]>([])
     const cardRefs = useRef<HTMLElement[]>([])
+    const [look, setLook] = useState(0) // 맨 앞 룩 번호(0~5) — Shop the look 링크용
+    const [quickId, setQuickId] = useState<number | null>(null)
+    const { data: products = {} } = useQuery({ queryKey: ['lookbook-products'], queryFn: fetchLookbookProducts, staleTime: 5 * 60_000 })
 
     useEffect(() => {
         const root = rootRef.current!, stage = stageRef.current!, rail = railRef.current!
@@ -135,7 +180,7 @@ const MaisonVellHero: React.FC = () => {
                 if (!settledAt) settledAt = now
                 if (now - settledAt >= AUTO_DWELL_MS && now >= holdUntil) { auto = { from: p, start: now }; target = Math.round(target) + 1; settledAt = 0 }
             } else settledAt = 0
-            if (p !== was || dirty) { dirty = false; paint() }
+            if (p !== was || dirty) { dirty = false; paint(); setLook(wrap(Math.round(p), N)) } // 같은 값이면 React가 다시 그리지 않음
             cx += (mx - cx) * .32; cy += (my - cy) * .32
             ring.style.transform = `translate3d(${cx.toFixed(1)}px,${cy.toFixed(1)}px,0)`
             raf = requestAnimationFrame(frame)
@@ -206,7 +251,7 @@ const MaisonVellHero: React.FC = () => {
     }, [])
 
     return (
-        <section ref={rootRef} className="mv" aria-label="Maison Vell 런웨이 룩북">
+        <section ref={rootRef} className="mv" aria-label="ÉTAGE 런웨이 룩북">
             <section
                 ref={stageRef}
                 className="mv-stage"
@@ -222,7 +267,7 @@ const MaisonVellHero: React.FC = () => {
                 </div>
                 <div className="mv-intro">
                     <h2 className="mv-wide">Spring Summer 2027</h2>
-                    <p>A study in softness and strength. The new season collection from Maison Vell blends delicate textures and modern silhouettes, crafted for a more beautiful tomorrow.</p>
+                    <p>A study in softness and strength. The new season collection from ÉTAGE blends delicate textures and modern silhouettes, crafted for a more beautiful tomorrow.</p>
                 </div>
                 <div className="mv-tag">
                     <div className="mv-look mv-wide" aria-live="polite">
@@ -233,26 +278,39 @@ const MaisonVellHero: React.FC = () => {
                             </span>
                         </span>
                     </div>
-                    <Link className="mv-shop mv-wide" to={SHOP_PATH}>Shop the look</Link>
+                    <Link className="mv-shop mv-wide" to={shopLookPath(products, look)}>Shop the look</Link>
                 </div>
                 <div ref={ringRef} className="mv-ring" />
             </section>
 
             <aside ref={railRef} className="mv-rail" aria-label="이 룩의 아이템">
-                {ITEMS.map(([a, b, c, d, name, price], i) => (
-                    <article key={name} ref={(el) => { if (el) cardRefs.current[i] = el }} className={`mv-card${i % 2 ? ' alt' : ''}`}>
-                        <span className="mv-shot">
-                            <Crop href={PIECES} x={a} y={c} w={b - a} h={d - c} sheetW={960} sheetH={720} />
-                        </span>
-                        <div className="mv-meta">
-                            <h3 className="mv-wide">{name}</h3>
-                            <span>{price}</span>
-                            <Link className="mv-add" to={SHOP_PATH} aria-label={`${name} 비슷한 상품 보기`} />
-                        </div>
-                    </article>
-                ))}
+                {ITEMS.map(([a, b, c, d, name], i) => {
+                    const product = products[name]
+                    const shot = <Crop href={PIECES} x={a} y={c} w={b - a} h={d - c} sheetW={960} sheetH={720} />
+                    return (
+                        <article key={name} ref={(el) => { if (el) cardRefs.current[i] = el }} className={`mv-card${i % 2 ? ' alt' : ''}`}>
+                            {product && <FavButton product={product} />}
+                            {product ? (
+                                <Link className="mv-shot" to={`/product/${product.id}`} aria-label={`${name} 상세 보기`}>{shot}</Link>
+                            ) : (
+                                <span className="mv-shot">{shot}</span>
+                            )}
+                            <div className="mv-meta">
+                                <h3>
+                                    <small className="mv-wide">{product?.brand ?? name.split(' ')[0]}</small>
+                                    {product?.brand ? name.replace(`${product.brand} `, '') : name}
+                                </h3>
+                                {product && <span>{product.status === 'soldout' ? '품절' : formatKRW(product.price)}</span>}
+                                {product && (
+                                    <button type="button" className="mv-add" aria-label={`${name} 옵션 선택 후 담기`} onClick={() => setQuickId(product.id)} />
+                                )}
+                            </div>
+                        </article>
+                    )
+                })}
             </aside>
             <div ref={waitRef} className="mv-wait" />
+            {quickId !== null && <QuickViewModal productId={quickId} onClose={() => setQuickId(null)} />}
         </section>
     )
 }
