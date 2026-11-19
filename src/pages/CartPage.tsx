@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { SHIPPING, shippingFeeFor } from '../config/site'
-import { ChevronDown, ChevronUp, Gift, Heart, Minus, Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Gift, Heart, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react'
 import Icon from '../components/Icon'
 import { Link, useNavigate } from 'react-router-dom'
 import { useCartContext } from '../context/CartContext'
@@ -53,30 +53,19 @@ const CartPage: React.FC = () => {
 
   if (cartItems.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="bg-white border-b border-gray-200 py-4">
-          <div className="max-w-7xl mx-auto px-6">
-            <nav className="flex items-center gap-2 text-sm text-gray-500">
-              <Link to="/" className="hover:text-black transition-colors">HOME</Link>
-              <span>&gt;</span>
-              <span className="text-black">장바구니</span>
-            </nav>
-          </div>
-        </div>
+      // 빈 장바구니: 큰 이모지(🛒)·둥근 버튼 → 사이트 공통 Lucide 가는 선 아이콘 + 각진 버튼 (ÉTAGE 스타일)
+      <div className="min-h-screen bg-etage-paper">
+        <div className="mx-auto max-w-7xl px-6 py-12">
+          <p className="text-[11px] uppercase tracking-label text-etage-muted">Shopping Bag</p>
+          <h1 className="mt-2 font-display text-3xl text-etage-ink md:text-4xl">장바구니</h1>
 
-        <div className="max-w-7xl mx-auto px-6 py-12">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-black mb-2">장바구니</h1>
-            <p className="text-gray-500">장바구니가 비어있습니다.</p>
-          </div>
-
-          <div className="text-center py-20">
-            <div className="text-8xl mb-6">🛒</div>
-            <h3 className="text-2xl font-semibold text-gray-800 mb-4">장바구니에 담긴 상품이 없습니다.</h3>
-            <p className="text-gray-500 mb-8">원하시는 상품을 장바구니에 담아보세요.</p>
+          <div className="mt-10 flex flex-col items-center border-y border-etage-line py-24 text-center">
+            <Icon as={ShoppingBag} className="h-10 w-10 text-etage-muted" />
+            <p className="mt-6 text-lg text-etage-ink">장바구니에 담긴 상품이 없습니다.</p>
+            <p className="mt-2 text-sm text-etage-muted">마음에 드는 상품을 담아 보세요.</p>
             <Link
               to="/"
-              className="inline-block px-8 py-4 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors no-underline"
+              className="mt-8 inline-flex items-center justify-center bg-etage-ink px-8 py-3 text-sm text-etage-paper transition-opacity hover:opacity-85"
             >
               쇼핑 계속하기
             </Link>
