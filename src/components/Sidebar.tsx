@@ -1,116 +1,81 @@
+// 마이페이지 계열 화면(마이페이지·쿠폰·찜·최근 본 상품)의 공용 메뉴 (ÉTAGE 스타일)
+// 데스크톱: 왼쪽 세로 메뉴 / 모바일: 위쪽 가로 스크롤 메뉴
+// '주문·배송 조회'는 마이페이지의 주문 목록으로 합쳤다 (원본은 같은 목록을 보여 주는 화면이 둘이었다)
 import React from 'react'
-import { SITE } from '../config/site'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-
-interface SidebarMenuItem {
-  label: string
-  link: string
-  active: boolean
-  onClick?: () => void // 있으면 링크 대신 버튼으로 렌더링
-}
 
 interface SidebarProps {
   currentPage?: string
+  /** 회원정보 변경을 누르면 호출. 없으면 마이페이지에서 회원정보 창을 연다 */
   onPersonalInfoClick?: (menuItem: string) => void
 }
 
+interface MenuItem {
+  label: string
+  to?: string
+  onClick?: () => void
+}
+
 const Sidebar: React.FC<SidebarProps> = ({ onPersonalInfoClick }) => {
-  const location = useLocation()
+  const { pathname } = useLocation()
   const navigate = useNavigate()
 
-  const sidebarMenus: { title: string; items: SidebarMenuItem[] }[] = [
+  const groups: { title: string; items: MenuItem[] }[] = [
     {
-      title: '주문현황',
+      title: 'SHOPPING',
       items: [
-        {
-          label: '주문접수/배송조회',
-          link: '/order-tracking',
-          active: location.pathname === '/order-tracking'
-        }
-      ]
+        { label: '주문·배송 조회', to: '/mypage' },
+        { label: '쿠폰', to: '/coupon' },
+        { label: '찜한 상품', to: '/wishlist' },
+        { label: '최근 본 상품', to: '/recent' },
+      ],
     },
     {
-      title: '쇼핑통장',
+      title: 'ACCOUNT',
       items: [
         {
-          label: '쿠폰',
-          link: '/coupon',
-          active: location.pathname === '/coupon'
-        }
-      ]
-    },
-    {
-      title: '쇼핑백',
-      items: [
-        {
-          label: '찜',
-          link: '/wishlist',
-          active: location.pathname === '/wishlist'
+          label: '회원정보 변경',
+          onClick: () => (onPersonalInfoClick ? onPersonalInfoClick('회원정보변경') : navigate('/mypage?modal=userInfo')),
         },
-        {
-          label: '최근 본 상품',
-          link: '/recent',
-          active: location.pathname === '/recent'
-        }
-      ]
+        { label: '1:1 문의내역', to: '/inquiry-history' },
+      ],
     },
-    {
-      title: '나의 정보',
-      items: [
-        {
-          label: '회원정보변경',
-          link: '#',
-          active: false,
-          onClick: () => {
-            if (onPersonalInfoClick) {
-              onPersonalInfoClick('회원정보변경')
-            } else {
-              // onPersonalInfoClick이 없으면 마이페이지로 이동
-              navigate('/mypage')
-            }
-          }
-        }
-      ]
-    }
   ]
 
-  return (
-    <div className="bg-white rounded-lg p-8 h-fit shadow-lg w-64 flex-shrink-0 relative z-10">
-      <div className="text-left mb-8 pb-5 border-b-2 border-gray-800">
-        <h3 className="text-2xl font-bold text-gray-800 m-0">{SITE.name}</h3>
-      </div>
+  const itemClass = (active: boolean) =>
+    `block whitespace-nowrap py-2 text-sm transition-colors lg:py-2.5 ${
+      active ? 'font-medium text-etage-ink' : 'text-etage-muted hover:text-etage-ink'
+    }`
 
-      <nav className="block">
-        {sidebarMenus.map((menu, index) => (
-          <div key={index} className="mb-8">
-            <h4 className="text-base font-semibold text-gray-800 m-0 mb-4">{menu.title}</h4>
-            <ul className="list-none p-0 m-0">
-              {menu.items.map((item, itemIndex) => (
-                <li key={itemIndex} className="mb-1">
-                  {item.onClick ? (
-                    <button
-                      onClick={item.onClick}
-                      className={`text-sm text-gray-600 py-3 px-4 block w-full text-left transition-all duration-300 rounded-md select-none relative z-10 hover:text-gray-800 hover:bg-gray-50 ${item.active ? 'text-gray-800 bg-gray-100 font-medium' : ''
-                        }`}
-                    >
-                      {item.label}
-                    </button>
-                  ) : (
-                    <Link
-                      to={item.link}
-                      className={`text-sm text-gray-600 py-3 px-4 block transition-all duration-300 rounded-md select-none relative z-10 hover:text-gray-800 hover:bg-gray-50 ${item.active ? 'text-gray-800 bg-gray-100 font-medium' : ''
-                        }`}
-                    >
-                      {item.label}
-                    </Link>
-                  )}
-                </li>
-              ))}
+  return (
+    <nav aria-label="마이페이지 메뉴" className="w-full lg:w-48 lg:flex-shrink-0">
+      <div className="flex gap-6 overflow-x-auto border-b border-etage-line pb-2 lg:block lg:overflow-visible lg:border-0 lg:pb-0">
+        {groups.map((group) => (
+          <div key={group.title} className="flex gap-6 lg:mb-10 lg:block">
+            <p className="hidden text-[10px] font-medium uppercase tracking-nav text-etage-muted lg:mb-3 lg:block">{group.title}</p>
+            <ul className="flex gap-6 lg:block">
+              {group.items.map((item) => {
+                const active = !!item.to && pathname === item.to
+                return (
+                  <li key={item.label}>
+                    {item.to ? (
+                      <Link to={item.to} aria-current={active ? 'page' : undefined} className={itemClass(active)}>
+                        {active && <span className="mr-2 hidden lg:inline">—</span>}
+                        {item.label}
+                      </Link>
+                    ) : (
+                      <button type="button" onClick={item.onClick} className={itemClass(false)}>
+                        {item.label}
+                      </button>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
           </div>
         ))}
-      </nav>
-    </div>
+      </div>
+    </nav>
   )
 }
 

@@ -43,7 +43,7 @@ const RecentViewPage: React.FC = () => {
   return (
     <div className="py-10 min-h-screen bg-gray-50 w-full">
       <div className="max-w-7xl mx-auto px-5 w-full box-border">
-        <div className="flex gap-8 items-start w-full">
+        <div className="flex w-full flex-col items-start gap-8 lg:flex-row">
           {/* 사이드바 */}
           <Sidebar onPersonalInfoClick={handlePersonalInfoClick} />
 

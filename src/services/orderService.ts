@@ -26,7 +26,7 @@ export interface OrderLine {
   option_text: string | null
   unit_price: number
   quantity: number
-  status: '배송준비' | '배송중' | '배송완료' | '취소'
+  status: '배송준비' | '배송중' | '배송완료' | '취소' | '반품'
   tracking_company: string | null
   tracking_number: string | null
 }
@@ -206,28 +206,19 @@ export const requestReturn = async (orderId: string, reason: string): Promise<{ 
   return data && data.length === 1 ? { ok: true } : { ok: false, message: '반품을 신청할 수 있는 주문이 아닙니다.' }
 }
 
-// 주문 취소 요청 (관리자 검토 필요)
-export const cancelOrder = async (orderId: string, reason: string): Promise<boolean> => {
-  try {
-    const { error } = await supabase
-      .from('orders')
-      .update({ 
-        status: '취소요청', 
-        cancel_reason: reason,
-        updated_at: new Date().toISOString() 
-      })
-      .eq('id', orderId)
-
-    if (error) {
-      console.error('주문 취소 오류:', error)
-      return false
-    }
-
-    return true
-  } catch (error) {
-    console.error('주문 취소 중 예외 발생:', error)
-    return false
+// 주문 취소 요청 (입점사·본사가 승인하면 환불된다)
+// 바뀐 행을 돌려받아 확인한다: 오류 없이 0건이 바뀐 경우(이미 발송 시작 등)도 실패로 알려 준다
+export const cancelOrder = async (orderId: string, reason: string): Promise<{ ok: boolean; message?: string }> => {
+  const { data, error } = await supabase
+    .from('orders')
+    .update({ status: '취소요청', cancel_reason: reason, updated_at: new Date().toISOString() })
+    .eq('id', orderId)
+    .select('id')
+  if (error) {
+    console.error('주문 취소 요청 오류:', error)
+    return { ok: false, message: error.message }
   }
+  return data && data.length === 1 ? { ok: true } : { ok: false, message: '취소를 요청할 수 있는 주문이 아닙니다.' }
 }
 
 // 주문 취소 승인 (관리자용)

@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, Component, ErrorInfo, ReactNode } from 'react'
-import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
+import { HashRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom'
 import { CartProvider } from './context/CartContext'
 import { WishlistProvider, useWishlistContext } from './context/WishlistContext'
 import { RecentViewProvider } from './context/RecentViewContext'
@@ -26,7 +26,6 @@ import CreditsPage from './pages/CreditsPage'
 
 import MyPage from './pages/MyPage'
 import WishlistPage from './pages/WishlistPage'
-import OrderTrackingPage from './pages/OrderTracking'
 import CouponPage from './pages/CouponPage'
 // 문의 관련 페이지 import 추가
 import InquiryPage from './pages/InquiryPage'
@@ -147,7 +146,8 @@ const AppContent: React.FC = () => {
             <Route path="/mypage" element={<MyPage />} />
             <Route path="/recent" element={<RecentViewPage />} />
             <Route path="/wishlist" element={<WishlistPage />} />
-            <Route path="/order-tracking" element={<OrderTrackingPage />} />
+            {/* 주문·배송 조회는 마이페이지로 합침 (예전 링크 호환) */}
+            <Route path="/order-tracking" element={<Navigate to="/mypage" replace />} />
             <Route path="/coupon" element={<CouponPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/credits" element={<CreditsPage />} />

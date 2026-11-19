@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { SITE } from '../config/site'
 import { Search } from 'lucide-react'
 import Icon from '../components/Icon'
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import Sidebar from '../components/Sidebar'
 import { useCouponContext } from '../context/CouponContext';
 import UserInfoModal from '../components/UserInfoModal';
 
@@ -85,87 +85,9 @@ const CouponPage: React.FC = () => {
           <span className="text-gray-800 font-medium">쿠폰</span>
         </div>
 
-                <div className="flex gap-8">
-          {/* 사이드바 */}
-          <aside className="bg-white rounded-lg p-8 shadow-lg w-64 flex-shrink-0">
-            <div className="mb-8 pb-5 border-b-2 border-gray-800">
-              <h3 className="text-2xl font-bold text-gray-800 m-0">{SITE.name}</h3>
-            </div>
-
-            <nav>
-              <div className="mb-8">
-                <h4 className="text-base font-semibold text-gray-800 m-0 mb-4">주문현황</h4>
-                <ul className="list-none p-0 m-0">
-                  <li className="mb-1">
-                    <Link
-                      to="/order-tracking"
-                      className="text-sm text-gray-600 py-3 px-4 block transition-all duration-300 rounded-md select-none relative z-10 hover:text-gray-800 hover:bg-gray-50"
-                    >
-                      주문접수/배송조회
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="mb-8">
-                <h4 className="text-base font-semibold text-gray-800 m-0 mb-4">쇼핑통장</h4>
-                <ul className="list-none p-0 m-0">
-                  <li className="mb-1">
-                    <Link
-                      to="/coupon"
-                      className="text-sm text-gray-800 py-3 px-4 block transition-all duration-300 rounded-md select-none relative z-10 bg-gray-100 font-medium"
-                    >
-                      쿠폰
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="mb-8">
-                <h4 className="text-base font-semibold text-gray-800 m-0 mb-4">쇼핑백</h4>
-                <ul className="list-none p-0 m-0">
-                  <li className="mb-1">
-                    <Link
-                      to="/wishlist"
-                      className="text-sm text-gray-600 py-3 px-4 block transition-all duration-300 rounded-md select-none relative z-10 hover:text-gray-800 hover:bg-gray-50"
-                    >
-                      찜
-                    </Link>
-                  </li>
-                  <li className="mb-1">
-                    <Link
-                      to="/recent"
-                      className="text-sm text-gray-600 py-3 px-4 block transition-all duration-300 rounded-md select-none relative z-10 hover:text-gray-800 hover:bg-gray-50"
-                    >
-                      최근 본 상품
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="mb-8">
-                <h4 className="text-base font-semibold text-gray-800 m-0 mb-4">나의 정보</h4>
-                <ul className="list-none p-0 m-0">
-                  <li className="mb-1">
-                    <button
-                      onClick={() => handlePersonalInfoClick('회원정보변경')}
-                      className="text-sm text-gray-600 py-3 px-4 block transition-all duration-300 rounded-md select-none relative z-10 hover:text-gray-800 hover:bg-gray-50 w-full text-left"
-                    >
-                      회원정보변경
-                    </button>
-                  </li>
-                  <li className="mb-1">
-                    <Link
-                      to="/inquiry-history"
-                      className="text-sm text-gray-600 py-3 px-4 block transition-all duration-300 rounded-md select-none relative z-10 hover:text-gray-800 hover:bg-gray-50"
-                    >
-                      1:1 문의내역
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-            </nav>
-          </aside>
+                <div className="flex flex-col gap-8 lg:flex-row">
+          {/* 사이드바 (마이페이지 공용 메뉴) */}
+          <Sidebar onPersonalInfoClick={handlePersonalInfoClick} />
 
           {/* 메인 콘텐츠 */}
           <main className="flex-1">
