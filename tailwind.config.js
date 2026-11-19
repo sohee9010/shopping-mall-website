@@ -15,6 +15,10 @@ export default {
           line: '#e5e3df',    // 구분선·테두리
           canvas: '#f4f2ee',  // 이미지 자리(로딩 전)·섹션 배경
           paper: '#ffffff',   // 기본 배경
+          // 홈 룩북 히어로(Maison Vell) 톤: 차가운 옅은 블루그레이. 홈 섹션이 히어로와 이어지게 쓴다
+          mist: '#f1f5fa',    // 섹션 바탕
+          fog: '#e7eff6',     // 바탕 그라데이션 중간·이미지 자리
+          slate: '#737b86',   // 히어로 보조 문구 색
         },
       },
       aspectRatio: {
@@ -27,6 +31,8 @@ export default {
       fontFamily: {
         // 로고·섹션 제목 같은 영문 표제용 세리프 (D-2). 한글은 Noto Sans KR로 대체 표시
         display: ['"Cormorant Garamond"', '"Noto Sans KR"', 'serif'],
+        // 히어로와 같은 넓은 대문자 서체 (SPRING SUMMER 2027·LOOK 17). 홈 섹션 제목·번호에 쓴다
+        wide: ['Michroma', '"Noto Sans KR"', 'sans-serif'],
       },
       keyframes: {
         'slide-in': {
