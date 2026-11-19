@@ -10,7 +10,9 @@ import { useParallax } from '../../hooks/useParallax'
 
 // 층별 룩북 (D-2): 브랜드 화보 1장(크게) + 그 층 인기 상품 4개(2×2)를 한 덩어리로.
 // 층마다 화보 위치를 좌우로 번갈아 바꿔 같은 격자가 반복되지 않게 한다 (비대칭 에디토리얼 격자)
+// 히어로 톤 맞춤: 화보 위 검은 그라데이션 + 세리프 브랜드명 → 사진 아래 흰 띠에 넓은 대문자 브랜드명 (FloorDirectory와 같은 말투)
 interface FloorLookbookProps {
+  index?: string
   floorId: number
   tag: string
   title: string
@@ -21,7 +23,7 @@ interface FloorLookbookProps {
   reverse?: boolean
 }
 
-const FloorLookbook: React.FC<FloorLookbookProps> = ({ floorId, tag, title, brandName, brandId, summary, image, reverse }) => {
+const FloorLookbook: React.FC<FloorLookbookProps> = ({ index, floorId, tag, title, brandName, brandId, summary, image, reverse }) => {
   const [products, setProducts] = useState<Product[] | null>(null)
   const swatches = useSwatches((products ?? []).map((p) => p.id)) // 이 층 상품 4개의 색상 칩을 한 번에
   const imageRef = useParallax<HTMLImageElement>()
@@ -35,7 +37,7 @@ const FloorLookbook: React.FC<FloorLookbookProps> = ({ floorId, tag, title, bran
   return (
     <section className="mx-auto max-w-[1440px] px-4 py-14 lg:px-10 lg:py-20">
       <Reveal>
-        <SectionHeader eyebrow={tag} title={title} viewAllTo={`/category/${floorId}`} viewAllLabel={`${tag} 전체 상품 보기`} />
+        <SectionHeader index={index} eyebrow={tag} title={title} viewAllTo={`/category/${floorId}`} viewAllLabel={`${tag} 전체 상품 보기`} />
       </Reveal>
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-10">
         {/* D-3: 화보는 스크롤보다 조금 느리게 움직인다(시차). 가장자리가 비지 않게 이미지를 1.12배로 키워 둔다 */}
@@ -47,9 +49,9 @@ const FloorLookbook: React.FC<FloorLookbookProps> = ({ floorId, tag, title, bran
             <div className="aspect-[3/4] overflow-hidden lg:aspect-auto lg:h-full">
               <img ref={imageRef} src={image} alt="" loading="lazy" decoding="async" className="h-full w-full scale-[1.12] object-cover" />
             </div>
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-6 text-etage-paper lg:p-8">
-              <p className="font-display text-3xl font-medium lg:text-4xl">{brandName}</p>
-              <p className="mt-2 text-sm text-etage-paper/90">{summary}</p>
+            <div className="absolute inset-x-0 bottom-0 bg-white/85 px-6 py-5 backdrop-blur-sm lg:px-8 lg:py-6">
+              <p className="font-wide text-sm uppercase tracking-[0.14em] text-etage-ink lg:text-lg">{brandName}</p>
+              <p className="mt-2 text-xs leading-relaxed text-etage-slate">{summary}</p>
             </div>
           </Link>
         </Reveal>
