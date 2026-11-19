@@ -439,3 +439,10 @@ entrypoint = "./functions/confirm-payment/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/confirm-payment/*.html" ]
+
+[functions.refund-order]
+enabled = true
+# 함수 안에서 사용자 토큰으로 결정 권한을 DB에 확인한다(order_decision_kind)
+verify_jwt = false
+import_map = "./functions/refund-order/deno.json"
+entrypoint = "./functions/refund-order/index.ts"
