@@ -7,6 +7,7 @@ import { useUser } from '../context/UserContext'
 import { getSearchSuggestions, getPopularSearchTerms } from '../services/productService'
 import { Search, ShoppingBag, User, Menu, X, Plus } from 'lucide-react'
 import Icon from './Icon'
+import Dialog, { primaryButton, secondaryButton } from './ui/Dialog'
 
 // 헤더 (D-2 재작성)
 // - 데스크톱: 가운데 로고 + 층(1차 카테고리) 가로 메뉴, 마우스를 올리거나 키보드로 초점이 가면 하위 메뉴 패널
@@ -204,15 +205,28 @@ const Header: React.FC = () => {
     closeTimer.current = setTimeout(() => setOpenFloorId(null), 120)
   }
 
-  const handleLogout = async () => {
+  // 로그아웃: 브라우저 기본 alert 대신 ÉTAGE 스타일 확인 창 (공용 Dialog)
+  // 이전: 누르자마자 로그아웃 + 기본 alert('로그아웃되었습니다.') — 잘못 눌러도 되돌릴 수 없고 디자인이 따로 놀았다
+  const [logoutOpen, setLogoutOpen] = useState(false)
+  const [logoutBusy, setLogoutBusy] = useState(false)
+  const [logoutError, setLogoutError] = useState('')
+  const handleLogout = () => {
+    setDrawerOpen(false)
+    setLogoutError('')
+    setLogoutOpen(true)
+  }
+  const confirmLogout = async () => {
+    setLogoutBusy(true)
     try {
       await syncCartOnLogout()
       await logout()
-      alert('로그아웃되었습니다.')
+      setLogoutOpen(false)
       navigate('/')
     } catch (error) {
       console.error('Logout error:', error)
-      alert('로그아웃 중 오류가 발생했습니다.')
+      setLogoutError('로그아웃하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+    } finally {
+      setLogoutBusy(false)
     }
   }
 
@@ -422,6 +436,24 @@ const Header: React.FC = () => {
           </nav>
         </div>
       </div>
+      <Dialog
+        open={logoutOpen}
+        onClose={() => !logoutBusy && setLogoutOpen(false)}
+        eyebrow="SIGN OUT"
+        title="로그아웃할까요?"
+        size="sm"
+        footer={
+          <>
+            <button type="button" className={secondaryButton} onClick={() => setLogoutOpen(false)} disabled={logoutBusy}>취소</button>
+            <button type="button" className={primaryButton} onClick={confirmLogout} disabled={logoutBusy}>
+              {logoutBusy ? '로그아웃 중…' : '로그아웃'}
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm leading-relaxed text-etage-muted">장바구니에 담은 상품은 계정에 저장되어 다음에 로그인하면 그대로 볼 수 있습니다.</p>
+        {logoutError && <p role="alert" className="mt-3 text-sm text-red-600">{logoutError}</p>}
+      </Dialog>
     </header>
   )
 }
