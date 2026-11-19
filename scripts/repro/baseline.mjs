@@ -126,6 +126,20 @@ async function markPaidForTest(orderId, amount) {
   return error ? { ok: false, error: error.message } : { ok: true, order: data }
 }
 
+// 관리자의 취소·반품 승인 = 환불 (0013 이후)
+//   승인 권한은 관리자 토큰으로 DB가 판단(order_decision_kind)하고, Toss 환불은 성공했다고 가정해
+//   DB 기록(complete_refund, 서버 전용)만 로컬 관리자 키로 수행한다 (테스트 결제 키는 실제 Toss 결제가 아니므로).
+//   0013 이전 구조면 null → 호출한 쪽이 예전 방식(직접 수정·decide_cancel_request)으로 처리
+async function approveWithRefundForTest(adminClient, orderId) {
+  const kind = await adminClient.rpc('order_decision_kind', { p_order_id: orderId })
+  if (kind.error?.code === 'PGRST202') return null
+  if (kind.error) return { error: kind.error }
+  const admin = createClient(URL, LOCAL_SECRET, { auth: { persistSession: false } })
+  const { data: pay } = await admin.from('payments').select('payment_key').eq('order_id', orderId).eq('status', 'DONE').maybeSingle()
+  const { data, error } = await admin.rpc('complete_refund', { p_order_id: orderId, p_payment_key: pay?.payment_key ?? null, p_raw: { test: true } })
+  return { data: data?.status, error }
+}
+
 // 원본 orderService.createOrder + updateProductStockAndSales 와 같은 순서 (v0-baseline src/services/orderService.ts:35-110)
 //   1) 주문 insert  2) 상품 재고 조회  3) 클라이언트에서 계산  4) 재고 update
 async function createOrderLikeOriginal(client, orderData) {
@@ -593,6 +607,65 @@ await check('P22', '계약 종료된 입점사가 숨김 처리된 상품을 다
     }
   })
 
+// LUNELLE 상품만 담은 주문을 만들고 결제 완료까지 처리한다 (입점사가 혼자 결정할 수 있는 주문)
+async function placePaidLunelleOrder() {
+  const { client, user } = await login('customer@etage.test')
+  const knit = await productByName(client, 'LUNELLE 캐시미어 라운드넥 니트')
+  const placed = await createOrderAsApp(client, {
+    user_id: user.id, total_amount: 0, payment_method: '카드',
+    items: [{ product_id: knit.id, name: knit.name, price: knit.price, quantity: 1, brand: knit.brand }],
+    shipping_address: '재현 실험', recipient_name: '재현', recipient_phone: '010-0000-0000',
+  })
+  if (!placed.ok) throw new Error(`주문 실패: ${placed.error}`)
+  const paid = await markPaidForTest(placed.order.id, placed.order.total_amount)
+  if (!paid.ok) throw new Error(`결제 완료 처리 실패: ${paid.error}`)
+  return { customer: client, orderId: placed.order.id, knit }
+}
+const paymentOf = async (orderId) => {
+  const { client: hq } = await login('hq@etage.test')
+  const { data } = await hq.from('payments').select('status').eq('order_id', orderId).maybeSingle()
+  return data?.status ?? '(결제 기록 없음)'
+}
+
+// P26: 취소 승인이 주문 상태와 재고만 바꾸고 결제사(Toss)에 결제 취소를 요청하지 않는다
+await check('P26', '결제된 주문의 취소를 승인해도 환불되지 않음',
+  'private.decide_cancel_request_impl (0009·0010, 주문 상태만 변경), src/admin/shared/pages/Orders.js:149 (취소 승인)',
+  '결제된 주문은 결제사 환불이 성공한 경우에만 주문취소가 되어야 한다 (환불 없이 취소 상태만 바뀌면 고객 돈이 돌아가지 않음)',
+  async () => {
+    const { customer, orderId } = await placePaidLunelleOrder()
+    await customer.from('orders').update({ status: '취소요청', cancel_reason: '재현 확인' }).eq('id', orderId)
+    const { client: lunelle } = await login('lunelle@etage.test')
+    const { error } = await lunelle.rpc('decide_cancel_request', { p_order_id: orderId, p_approve: true })
+    const { data: order } = await customer.from('orders').select('status').eq('id', orderId).single()
+    const payment = await paymentOf(orderId)
+    return {
+      reproduced: order.status === '주문취소' && payment === 'DONE',
+      actual: `입점사 취소 승인 → ${error ? '거부: ' + error.message : '성공'}, 주문 상태 '${order.status}', 결제 기록 '${payment}'`,
+    }
+  })
+
+// P27: 고객이 반품을 신청할 수는 있지만(P24), 입점사·본사가 승인·거부할 서버 함수와 화면이 없다
+await check('P27', '고객의 반품 신청을 처리할 방법이 없음',
+  'src/admin/shared/pages/Orders.js (반품 처리 버튼 없음), DB에 반품 결정 함수 없음',
+  '입점사(또는 섞인 주문은 본사)가 반품을 거부하거나 환불과 함께 승인할 수 있어야 한다',
+  async () => {
+    const { customer, orderId } = await placePaidLunelleOrder()
+    const { client: lunelle } = await login('lunelle@etage.test')
+    await lunelle.rpc('ship_order_items', { p_order_id: orderId, p_tracking_company: 'CJ대한통운', p_tracking_number: 'R-27' })
+    await lunelle.rpc('deliver_order_items', { p_order_id: orderId })
+    const { error: reqErr } = await customer.from('orders').update({ status: '반품신청', return_reason: '재현 확인' }).eq('id', orderId)
+    if (reqErr) throw new Error(`반품 신청 실패: ${reqErr.message}`)
+    const reject = await lunelle.rpc('reject_order_request', { p_order_id: orderId })
+    const kind = await lunelle.rpc('order_decision_kind', { p_order_id: orderId })
+    const { data: order } = await customer.from('orders').select('status').eq('id', orderId).single()
+    const missing = (r) => r.error?.code === 'PGRST202'
+    return {
+      reproduced: missing(reject) && missing(kind),
+      actual: `반품 거부 함수 ${missing(reject) ? '없음' : reject.error ? '거부: ' + reject.error.message : '실행 → ' + reject.data}, ` +
+        `반품 승인(환불) 판정 함수 ${missing(kind) ? '없음' : kind.error ? '오류: ' + kind.error.message : kind.data}, 주문 상태 '${order.status}'`,
+    }
+  })
+
 // P25: 상품 상태를 입점사가 정한다 (원본 화면이 등록 시 status='forsale'로 저장, RLS는 브랜드만 검사)
 //   → 본사 검수 없이 쇼핑몰에 바로 노출되고, 검수 대기 상품도 입점사가 스스로 판매중으로 바꾼다
 await check('P25', '입점사가 등록한 상품이 본사 검수 없이 쇼핑몰에 노출',
@@ -686,7 +759,7 @@ await works('주문: 정상 주문 → 고객 취소 요청 → 본사 취소 �
   const afterOrder = await productByName(client, p.name)
   const { error: reqErr } = await client.from('orders').update({ status: '취소요청', cancel_reason: '정상 확인' }).eq('id', placed.order.id)
   const hq = (await login('hq@etage.test')).client
-  const { error: apprErr } = await hq.from('orders').update({ status: '주문취소' }).eq('id', placed.order.id)
+  const { error: apprErr } = (await approveWithRefundForTest(hq, placed.order.id)) ?? await hq.from('orders').update({ status: '주문취소' }).eq('id', placed.order.id)
   const afterCancel = await productByName(client, p.name)
   const ok = afterOrder.stock === p.stock - 2 && !reqErr && !apprErr && afterCancel.stock === p.stock
   return {
@@ -872,7 +945,7 @@ await works('취소 결정: 섞인 주문은 입점사가 못 하고 본사가 �
   const lunelle = (await login('lunelle@etage.test')).client
   const byMerchant = await lunelle.rpc('decide_cancel_request', { p_order_id: orderId, p_approve: true })
   const hq = (await login('hq@etage.test')).client
-  const byHq = await hq.rpc('decide_cancel_request', { p_order_id: orderId, p_approve: true })
+  const byHq = (await approveWithRefundForTest(hq, orderId)) ?? await hq.rpc('decide_cancel_request', { p_order_id: orderId, p_approve: true })
   const knitAfter = await productByName(customer, knit.name)
   const { data: lines } = await customer.from('order_items').select('status').eq('order_id', orderId)
   return {
@@ -939,6 +1012,83 @@ await works('상품 검수: 고객·입점사는 검수 함수를 쓸 수 없음
   const { data: own } = await lunelle.from('products').select('id').order('id').limit(1).single()
   const { error } = await lunelle.rpc('review_product', { p_product_id: own.id, p_approve: false, p_reason: '자기 상품 반려 시도' })
   return { ok: !!error, detail: error ? `거부됨: ${error.message}` : '입점사가 검수 함수 실행 성공 (문제)' }
+})
+
+// ---- 환불(0013) 이후에만 의미가 있는 확인 ----
+const hasRefund = (await newClient().rpc('order_decision_kind', { p_order_id: 'x' })).error?.code !== 'PGRST202'
+async function callRefund(client, orderId) {
+  const token = (await client.auth.getSession()).data.session.access_token
+  const res = await fetch(`${URL}/functions/v1/refund-order`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ orderId }),
+  })
+  const text = await res.text()
+  let body
+  try { body = JSON.parse(text) } catch { body = { code: text } }
+  return { status: res.status, body }
+}
+
+await works('환불: 본사도 결제된 주문을 환불 없이 주문취소로 바꿀 수 없음', async () => {
+  if (!hasRefund) return { ok: true, detail: '0013 이전 구조 — 해당 없음' }
+  const { customer, orderId } = await placePaidLunelleOrder()
+  await customer.from('orders').update({ status: '취소요청', cancel_reason: '정상 확인' }).eq('id', orderId)
+  const { client: hq } = await login('hq@etage.test')
+  const { error } = await hq.from('orders').update({ status: '주문취소' }).eq('id', orderId)
+  return { ok: !!error, detail: error ? `거부됨: ${error.message}` : '본사 직접 취소 성공 (문제: 환불 없이 취소)' }
+})
+await works('환불: Toss 환불이 실패하면 주문·결제 기록이 바뀌지 않음 (refund-order)', async () => {
+  if (!hasRefund) return { ok: true, detail: '0013 이전 구조 — 해당 없음' }
+  const { customer, orderId, knit } = await placePaidLunelleOrder()
+  await customer.from('orders').update({ status: '취소요청', cancel_reason: '정상 확인' }).eq('id', orderId)
+  const before = await productByName(customer, knit.name)
+  const { client: lunelle } = await login('lunelle@etage.test')
+  const res = await callRefund(lunelle, orderId) // 테스트 결제 키는 실제 Toss 결제가 아니므로 Toss가 거절한다
+  const { data: order } = await customer.from('orders').select('status').eq('id', orderId).single()
+  const after = await productByName(customer, knit.name)
+  const payment = await paymentOf(orderId)
+  return {
+    ok: res.status === 502 && order.status === '취소요청' && payment === 'DONE' && after.stock === before.stock,
+    detail: `응답 ${res.status} ${res.body.message ?? res.body.code}, 주문 '${order.status}', 결제 기록 '${payment}', 재고 ${before.stock} → ${after.stock}`,
+  }
+})
+await works('환불: 결정 권한 — 다른 브랜드 입점사·고객은 환불 요청 불가', async () => {
+  if (!hasRefund) return { ok: true, detail: '0013 이전 구조 — 해당 없음' }
+  const { customer, orderId } = await placePaidLunelleOrder()
+  await customer.from('orders').update({ status: '취소요청', cancel_reason: '정상 확인' }).eq('id', orderId)
+  const { client: greymont } = await login('greymont@etage.test')
+  const byOther = await callRefund(greymont, orderId)
+  const byCustomer = await callRefund(customer, orderId)
+  const { data: order } = await customer.from('orders').select('status').eq('id', orderId).single()
+  return {
+    ok: byOther.status >= 400 && byCustomer.status >= 400 && order.status === '취소요청',
+    detail: `GREYMONT ${byOther.status} ${byOther.body.message}, 고객 ${byCustomer.status} ${byCustomer.body.message}, 주문 '${order.status}'`,
+  }
+})
+await works('반품: 거부하면 배송완료로, 승인(환불)하면 반품완료·상품 줄 반품·판매량 차감, 재고는 그대로', async () => {
+  if (!hasRefund) return { ok: true, detail: '0013 이전 구조 — 해당 없음' }
+  const { client: lunelle } = await login('lunelle@etage.test')
+  const deliveredReturn = async (tag) => {
+    const r = await placePaidLunelleOrder()
+    await lunelle.rpc('ship_order_items', { p_order_id: r.orderId, p_tracking_company: 'CJ대한통운', p_tracking_number: tag })
+    await lunelle.rpc('deliver_order_items', { p_order_id: r.orderId })
+    await r.customer.from('orders').update({ status: '반품신청', return_reason: '정상 확인' }).eq('id', r.orderId)
+    return r
+  }
+  const a = await deliveredReturn('RET-A')
+  const rejected = await lunelle.rpc('reject_order_request', { p_order_id: a.orderId })
+  const b = await deliveredReturn('RET-B')
+  const before = await productByName(b.customer, b.knit.name)
+  const approved = await approveWithRefundForTest(lunelle, b.orderId)
+  const after = await productByName(b.customer, b.knit.name)
+  const { data: lines } = await b.customer.from('order_items').select('status').eq('order_id', b.orderId)
+  const payment = await paymentOf(b.orderId)
+  return {
+    ok: rejected.data === '배송완료' && approved?.data === '반품완료' && lines.every((l) => l.status === '반품') &&
+      payment === 'CANCELED' && after.stock === before.stock && after.sales === before.sales - 1,
+    detail: `거부 → ${rejected.error ? '실패: ' + rejected.error.message : rejected.data}, 승인 → ${approved?.error ? '실패: ' + approved.error.message : approved?.data}, ` +
+      `줄 ${lines.map((l) => l.status).join(', ')}, 결제 기록 '${payment}', 재고 ${before.stock} → ${after.stock}, 판매량 ${before.sales} → ${after.sales}`,
+  }
 })
 
 // ---------------------------------------------------------------------
