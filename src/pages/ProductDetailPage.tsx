@@ -17,6 +17,7 @@ import { formatKRW } from '../utils/format'
 import { Product } from '../types'
 import { Heart, Plus } from 'lucide-react'
 import Icon from '../components/Icon'
+import ZoomImage from '../components/product/ZoomImage'
 
 // 상품 상세 (D-5 재작성): 구매에 필요한 것만 깔끔하게
 // - 데스크톱: 왼쪽 세로 썸네일 + 큰 이미지 / 오른쪽 정보 패널(스크롤해도 따라옴), 브랜드명 → 브랜드 페이지
@@ -240,7 +241,8 @@ const ProductDetailPage: React.FC = () => {
                 })}
               </div>
               <div className="aspect-product flex-1 overflow-hidden bg-etage-canvas">
-                <img src={gallery[activeImage] ?? gallery[0]} alt={product.name} className="h-full w-full object-cover" />
+                {/* 마우스를 올린 부분 확대 (돋보기) */}
+                <ZoomImage src={gallery[activeImage] ?? gallery[0]} alt={product.name} />
               </div>
             </div>
           </section>

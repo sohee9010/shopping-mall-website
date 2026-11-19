@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { SITE } from '../config/site'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { login } from '../services/userService'
 import { useUser } from '../context/UserContext'
 import { useCartContext } from '../context/CartContext'
@@ -8,6 +8,10 @@ import { authLogger } from '../utils/logger'
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate()
+  // 로그인이 필요한 기능(찜 등)에서 넘어왔으면 로그인 후 원래 화면으로. 사이트 안 경로('/'로 시작)만 허용
+  const [params] = useSearchParams()
+  const redirect = params.get('redirect')
+  const backTo = redirect && redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/'
   const { setCurrentUser } = useUser()
   const { syncCartOnLogin } = useCartContext()
   const [formData, setFormData] = useState({
@@ -43,7 +47,7 @@ const LoginPage: React.FC = () => {
         await syncCartOnLogin()
         
         alert(`${result.user.name}님, 환영합니다!`)
-        navigate('/')
+        navigate(backTo)
       } else {
         alert(result.error || '로그인에 실패했습니다.')
       }

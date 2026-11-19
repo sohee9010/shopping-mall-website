@@ -61,14 +61,12 @@ export const addToWishlist = async (userId: string, productId: number): Promise<
   try {
     console.log('Adding to wishlist - userId:', userId, 'productId:', productId)
     
+    // 이미 찜한 상품이면 그대로 성공으로 처리 (중복 무시)
+    // 이전: insert라서, 찜 목록을 불러오기 전에 하트를 누르거나 다른 탭에서 이미 찜한 상품이면
+    //       (user_id, product_id) 중복 오류 → 화면에 '찜 목록 추가에 실패했습니다'가 떴다
     const { data, error } = await supabase
       .from('wishlists')
-      .insert([
-        {
-          user_id: userId,
-          product_id: productId
-        }
-      ])
+      .upsert({ user_id: userId, product_id: productId }, { onConflict: 'user_id,product_id', ignoreDuplicates: true })
       .select()
 
     if (error) {

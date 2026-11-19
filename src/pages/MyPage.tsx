@@ -71,12 +71,17 @@ const MyPage: React.FC = () => {
       .finally(() => setLoading(false))
   }, [currentUser, loadOrders])
 
+  // 이전: 진행 현황을 '주문 건수'로 셌다 → 상품 3개가 배송 중인 주문 1건이 '배송 중 1'로 보여, 주문 목록의 상품 줄(배송 중 3개)과 숫자가 달랐다.
+  // 이제 진행 현황은 상품(주문 상품 줄의 상태·수량) 기준, '진행 중 주문'은 주문 건수 기준으로 단위를 함께 표시한다.
   const counts = useMemo(() => {
     const c = (statuses: string[]) => orders.filter((o) => statuses.includes(o.status)).length
+    const unpaid = ['결제대기', '결제실패', '결제취소', '주문취소']
+    const lines = orders.filter((o) => !unpaid.includes(o.status)).flatMap((o) => o.order_items ?? [])
+    const qty = (status: string) => lines.filter((l) => l.status === status).reduce((sum, l) => sum + l.quantity, 0)
     return {
-      paid: c(['결제완료']),
-      shipping: c(['부분배송', '배송중']),
-      delivered: c(['배송완료']),
+      preparing: qty('배송준비'),
+      shipping: qty('배송중'),
+      delivered: qty('배송완료'),
       requests: c(['취소요청', '반품신청']),
       active: c(FILTER_STATUSES['진행 중']),
     }
@@ -133,7 +138,7 @@ const MyPage: React.FC = () => {
       <dl className="mt-6 grid grid-cols-3 divide-x divide-etage-line border-t border-etage-line lg:mt-0 lg:w-[360px] lg:border-t-0">
         {[
           { label: '쿠폰', value: `${availableCoupons.length}`, to: '/coupon' },
-          { label: '진행 중 주문', value: `${counts.active}`, onClick: () => setFilter('진행 중') },
+          { label: '진행 중 주문', value: `${counts.active}건`, onClick: () => setFilter('진행 중') },
           { label: '1:1 문의', value: `${inquiryCount}`, to: '/inquiry-history' },
         ].map((s) => {
           const body = (
@@ -171,11 +176,11 @@ const MyPage: React.FC = () => {
                 <h2 id="progress-title" className="font-display text-2xl font-medium text-etage-ink lg:text-3xl">
                   Order Status
                 </h2>
-                <span className="text-xs text-etage-muted">전체 주문 기준</span>
+                <span className="text-xs text-etage-muted">상품 수 기준 (취소·반품 요청은 주문 수)</span>
               </div>
               <ol className="mt-6 grid grid-cols-2 border-t border-etage-line sm:grid-cols-4">
                 {[
-                  { label: '결제 완료', value: counts.paid },
+                  { label: '배송 준비', value: counts.preparing },
                   { label: '배송 중', value: counts.shipping },
                   { label: '배송 완료', value: counts.delivered },
                   { label: '취소·반품 요청', value: counts.requests },
