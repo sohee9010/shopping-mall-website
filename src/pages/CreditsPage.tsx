@@ -18,6 +18,17 @@ const CreditsPage: React.FC = () => {
           의 사진을 사용했습니다. 사진은 상품 분위기를 보여주기 위한 예시이며, 실제 판매 상품이 아닙니다.
           아래 작가분들께 감사드립니다. (총 {credits.length}장)
         </p>
+        {/* 홈 룩북 히어로와 룩북 상품 12개의 사진·화면 구성 출처 (MotionSites 이용약관: 프롬프트로 만든 사이트 공개 허용) */}
+        <section className="mb-10 border border-gray-100 p-5">
+          <h2 className="text-base font-semibold text-gray-900 mb-2">홈 룩북 (Spring Summer 2027)</h2>
+          <p className="text-sm text-gray-600 leading-relaxed">
+            홈 첫 화면의 런웨이 룩북 화면 구성과 모델·상품 이미지(룩북 상품 12개의 사진 포함)는{' '}
+            <a href="https://www.motionsites.ai/?prompt=vell-lookbook" target="_blank" rel="noopener noreferrer" className="underline">
+              MotionSites AI의 &lsquo;Vell Lookbook&rsquo; 프롬프트
+            </a>
+            에서 제공한 에셋(AI 생성 이미지)을 사용했습니다. 이미지의 권리는 MotionSites AI에 있습니다.
+          </p>
+        </section>
         <ul className="divide-y divide-gray-100 border-t border-b border-gray-100">
           {credits.map((credit) => (
             <li key={credit.id} className="py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-1">
