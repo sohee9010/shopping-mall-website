@@ -1,228 +1,178 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getProductsByLevel3Category, getProductsByParentCategory, getCategoryById } from '../services/categoryService'
-import { supabase } from '../services/supabase'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import {
+    getCategoryProductCounts,
+    getCategoryProductPage,
+    CATEGORY_PAGE_SIZE,
+} from '../services/categoryService'
 import { Product } from '../types'
 import ProductCard, { ProductGrid, ProductGridSkeleton } from '../components/product/ProductCard'
 import { useSwatches } from '../hooks/useSwatches'
 
-const CategoryPage: React.FC = () => {
-    const { categoryId, category } = useParams<{ categoryId: string; category: string }>()
-    const actualCategoryId = categoryId || category
-    const [products, setProducts] = useState<Product[]>([])
-    const [allProducts, setAllProducts] = useState<Product[]>([]) // 모든 상품 저장
-    // 컬러 스와치: 하위 카테고리 필터를 바꿔도 다시 조회하지 않도록 전체 상품 기준으로 한 번에
-    const swatches = useSwatches(allProducts.map((p) => p.id))
-    const [categoryName, setCategoryName] = useState<string>('')
-    const [subcategories, setSubcategories] = useState<any[]>([])
-    const [selectedSubcategory, setSelectedSubcategory] = useState<number | null>(null)
-    const [subcategoryProductCounts, setSubcategoryProductCounts] = useState<{[key: number]: number}>({})
-    const [loading, setLoading] = useState<boolean>(true)
-    const [error, setError] = useState<string>('')
+// 카테고리 상품 목록 — 커서 페이지네이션 + 무한 스크롤 (3단계-4)
+// 이전: 하위 분류 상품을 전부 받아 화면에서 거름, 분류별 개수는 분류 수만큼 RPC 호출(N+1)
+// 이후: 12개씩 서버에서 이어 받기(list_category_products), 개수는 한 번에(category_product_counts)
 
+// 한 페이지 분량의 카드. 스와치도 페이지 단위로 조회해 다음 페이지가 붙을 때 앞 페이지를 다시 조회하지 않는다
+const PageCards: React.FC<{ products: Product[]; eagerFirst: boolean }> = ({ products, eagerFirst }) => {
+    const swatches = useSwatches(products.map((p) => p.id))
+    return (
+        <>
+            {products.map((product, index) => (
+                // 첫 페이지 첫 줄 카드는 바로 보이므로 지연 로딩하지 않는다
+                <ProductCard key={product.id} product={product} eager={eagerFirst && index < 4} swatches={swatches[product.id]} />
+            ))}
+        </>
+    )
+}
+
+const ErrorBox: React.FC<{ message: string; onRetry: () => void }> = ({ message, onRetry }) => (
+    <div className="text-center py-12">
+        <p className="text-red-600 mb-4">{message}</p>
+        <button onClick={onRetry} className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-600 transition-colors">
+            다시 시도
+        </button>
+    </div>
+)
+
+const CategoryListing: React.FC<{ categoryId: number }> = ({ categoryId }) => {
+    const [selected, setSelected] = useState<number | null>(null)
+    const listId = selected ?? categoryId
+
+    const counts = useQuery({
+        queryKey: ['category-counts', categoryId],
+        queryFn: () => getCategoryProductCounts(categoryId),
+        staleTime: 60_000,
+    })
+
+    const list = useInfiniteQuery({
+        queryKey: ['category-products', listId],
+        queryFn: ({ pageParam = null }) => getCategoryProductPage(listId, pageParam),
+        getNextPageParam: (last) => last.next ?? undefined, // undefined면 hasNextPage = false
+        enabled: counts.isSuccess && counts.data.length > 0,
+    })
+    const { hasNextPage, isFetchingNextPage, fetchNextPage } = list
+
+    // 목록 끝 표시가 화면 600px 앞까지 오면 다음 페이지를 미리 받는다
+    const sentinelRef = useRef<HTMLDivElement>(null)
     useEffect(() => {
-        const fetchProducts = async () => {
-            if (!actualCategoryId) return
-
-            try {
-                setLoading(true)
-                setError('')
-                
-                // 먼저 카테고리 정보를 가져와서 레벨 확인
-                const categoryInfo = await getCategoryById(parseInt(actualCategoryId))
-                
-                if (!categoryInfo) {
-                    setError('카테고리를 찾을 수 없습니다.')
-                    return
-                }
-
-                // 레벨에 따라 다른 함수 호출
-                if (categoryInfo.level === 3) {
-                    // 레벨3 카테고리인 경우 (최하위 카테고리)
-                    const result = await getProductsByLevel3Category(parseInt(actualCategoryId))
-                    setProducts(result.products)
-                    setCategoryName(result.categoryName)
-                    setSubcategories([])
-                } else {
-                    // 레벨1 또는 레벨2 카테고리인 경우 (상위 카테고리)
-                    const result = await getProductsByParentCategory(parseInt(actualCategoryId))
-                    setProducts(result.products)
-                    setAllProducts(result.products) // 모든 상품 저장
-                    setCategoryName(result.categoryName)
-                    setSubcategories(result.subcategories)
-                    
-                    // 하위 카테고리별 상품 개수 계산
-                    if (result.subcategories.length > 0) {
-                        await calculateSubcategoryProductCounts(result.subcategories, result.products)
-                    }
-                }
-            } catch (err) {
-                console.error('Error fetching category products:', err)
-                setError('상품을 불러오는 중 오류가 발생했습니다.')
-            } finally {
-                setLoading(false)
-            }
-        }
-
-        fetchProducts()
-    }, [actualCategoryId])
-
-    // 하위 카테고리별 상품 개수 계산
-    const calculateSubcategoryProductCounts = async (subcategories: any[], allProducts: Product[]) => {
-        const counts: {[key: number]: number} = {}
-        
-        for (const subcategory of subcategories) {
-            try {
-                // 선택된 카테고리의 모든 하위 카테고리 ID들을 가져오기
-                const { data: subcategoryIds, error } = await supabase.rpc('get_all_subcategory_ids', {
-                    parent_id: subcategory.id
-                })
-                
-                if (error) {
-                    console.error('Error getting subcategory IDs for count:', error)
-                    // 에러 시 해당 카테고리 ID만으로 계산
-                    counts[subcategory.id] = allProducts.filter(product => product.category_id === subcategory.id).length
-                } else {
-                    // 선택된 카테고리 ID와 그 하위 카테고리 ID들을 모두 포함
-                    const allIds = [subcategory.id, ...(subcategoryIds || [])]
-                    counts[subcategory.id] = allProducts.filter(product => allIds.includes(product.category_id)).length
-                }
-            } catch (error) {
-                console.error('Error calculating subcategory product count:', error)
-                counts[subcategory.id] = allProducts.filter(product => product.category_id === subcategory.id).length
-            }
-        }
-        
-        setSubcategoryProductCounts(counts)
-    }
-
-    // 하위 카테고리 필터링 함수
-    const handleSubcategoryFilter = async (subcategoryId: number | null) => {
-        setSelectedSubcategory(subcategoryId)
-        
-        if (subcategoryId === null) {
-            // 전체 상품 표시
-            setProducts(allProducts)
-        } else {
-            // 특정 하위 카테고리와 그 하위의 모든 카테고리 상품들을 필터링
-            try {
-                // 선택된 카테고리의 모든 하위 카테고리 ID들을 가져오기
-                const { data: subcategoryIds, error } = await supabase.rpc('get_all_subcategory_ids', {
-                    parent_id: subcategoryId
-                })
-                
-                if (error) {
-                    console.error('Error getting subcategory IDs:', error)
-                    // 에러 시 해당 카테고리 ID만으로 필터링
-                    const filteredProducts = allProducts.filter(product => product.category_id === subcategoryId)
-                    setProducts(filteredProducts)
-                    return
-                }
-                
-                // 선택된 카테고리 ID와 그 하위 카테고리 ID들을 모두 포함
-                const allIds = [subcategoryId, ...(subcategoryIds || [])]
-                const filteredProducts = allProducts.filter(product => allIds.includes(product.category_id))
-                setProducts(filteredProducts)
-            } catch (error) {
-                console.error('Error in handleSubcategoryFilter:', error)
-                // 에러 시 해당 카테고리 ID만으로 필터링
-                const filteredProducts = allProducts.filter(product => product.category_id === subcategoryId)
-                setProducts(filteredProducts)
-            }
-        }
-    }
+        const el = sentinelRef.current
+        if (!el || !hasNextPage || typeof IntersectionObserver === 'undefined') return
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting && !isFetchingNextPage) fetchNextPage()
+            },
+            { rootMargin: '600px 0px' },
+        )
+        observer.observe(el)
+        return () => observer.disconnect()
+    }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
     // 로딩 화면은 실제 화면과 같은 틀(제목 자리 + 상품 격자 자리)로 그린다 → 내용이 들어와도 움직이지 않음 (CLS)
-    if (loading) {
+    if (counts.isLoading) {
         return (
-            <div className="min-h-screen bg-gray-50 py-8">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="mb-8">
-                        <div className="h-9 w-32 bg-etage-canvas animate-pulse mb-2" />
-                        <div className="h-6 w-24 bg-etage-canvas animate-pulse" />
-                    </div>
-                    <ProductGridSkeleton />
+            <>
+                <div className="mb-8">
+                    <div className="h-9 w-32 bg-etage-canvas animate-pulse mb-2" />
+                    <div className="h-6 w-24 bg-etage-canvas animate-pulse" />
                 </div>
-            </div>
+                <ProductGridSkeleton />
+            </>
         )
+    }
+    if (counts.isError) {
+        return <ErrorBox message="상품을 불러오는 중 오류가 발생했습니다." onRetry={() => counts.refetch()} />
     }
 
-    if (error) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <p className="text-red-600 mb-4">{error}</p>
-                    <button 
-                        onClick={() => window.location.reload()}
-                        className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-600 transition-colors"
-                    >
-                        다시 시도
-                    </button>
-                </div>
+    const self = counts.data.find((c) => c.is_self)
+    if (!self) return <ErrorBox message="카테고리를 찾을 수 없습니다." onRetry={() => counts.refetch()} />
+    const children = counts.data.filter((c) => !c.is_self)
+    const shownCount = selected === null ? self.product_count : children.find((c) => c.category_id === selected)?.product_count ?? 0
+    const pages = list.data?.pages ?? []
+
+    const chip = (active: boolean) =>
+        `px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+            active ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+        }`
+
+    return (
+        <>
+            <div className="mb-8">
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">{self.name}</h1>
+                <p className="text-gray-600">총 {shownCount}개의 상품</p>
             </div>
-        )
-    }
+
+            {children.length > 0 && (
+                <div className="mb-8">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4">하위 카테고리</h2>
+                    <div className="flex flex-wrap gap-2">
+                        <button onClick={() => setSelected(null)} aria-pressed={selected === null} className={chip(selected === null)}>
+                            전체 ({self.product_count})
+                        </button>
+                        {children.map((c) => (
+                            <button
+                                key={c.category_id}
+                                onClick={() => setSelected(c.category_id)}
+                                aria-pressed={selected === c.category_id}
+                                className={chip(selected === c.category_id)}
+                            >
+                                {c.name} ({c.product_count})
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {list.isLoading ? (
+                <ProductGridSkeleton />
+            ) : list.isError ? (
+                <ErrorBox message="상품을 불러오는 중 오류가 발생했습니다." onRetry={() => list.refetch()} />
+            ) : pages[0]?.products.length ? (
+                <>
+                    <ProductGrid>
+                        {pages.map((page, i) => (
+                            <PageCards key={i} products={page.products} eagerFirst={i === 0} />
+                        ))}
+                    </ProductGrid>
+
+                    {/* 무한 스크롤 감지 지점. 감지가 안 되는 환경·키보드 사용자를 위해 버튼도 둔다 */}
+                    <div ref={sentinelRef} className="mt-12 flex justify-center">
+                        {hasNextPage ? (
+                            <button
+                                onClick={() => fetchNextPage()}
+                                disabled={isFetchingNextPage}
+                                className="border border-gray-800 px-8 py-3 text-sm tracking-wide hover:bg-gray-800 hover:text-white transition-colors disabled:opacity-50"
+                            >
+                                {isFetchingNextPage ? '불러오는 중…' : `더 보기 (${CATEGORY_PAGE_SIZE}개씩)`}
+                            </button>
+                        ) : (
+                            pages.length > 1 && <p className="text-sm text-gray-500">모든 상품을 보셨습니다</p>
+                        )}
+                    </div>
+                </>
+            ) : (
+                <div className="text-center py-12">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">상품이 없습니다</h3>
+                    <p className="text-gray-600">이 카테고리에는 아직 상품이 등록되지 않았습니다.</p>
+                </div>
+            )}
+        </>
+    )
+}
+
+const CategoryPage: React.FC = () => {
+    const { categoryId, category } = useParams<{ categoryId: string; category: string }>()
+    const id = Number(categoryId || category)
 
     return (
         <div className="min-h-screen bg-gray-50 py-8">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                {/* 헤더 */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">{categoryName}</h1>
-                    <p className="text-gray-600">총 {products.length}개의 상품</p>
-                </div>
-
-                {/* 하위 카테고리 필터 */}
-                {subcategories.length > 0 && (
-                    <div className="mb-8">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-4">하위 카테고리</h2>
-                        <div className="flex flex-wrap gap-2">
-                            <button
-                                onClick={() => handleSubcategoryFilter(null)}
-                                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                                    selectedSubcategory === null
-                                        ? 'bg-gray-800 text-white'
-                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                }`}
-                            >
-                                전체 ({allProducts.length})
-                            </button>
-                            {subcategories.map((subcategory) => {
-                                const subcategoryProductCount = subcategoryProductCounts[subcategory.id] || 0
-                                
-                                return (
-                                    <button
-                                        key={subcategory.id}
-                                        onClick={() => handleSubcategoryFilter(subcategory.id)}
-                                        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                                            selectedSubcategory === subcategory.id
-                                                ? 'bg-gray-800 text-white'
-                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                        }`}
-                                    >
-                                        {subcategory.name} ({subcategoryProductCount})
-                                    </button>
-                                )
-                            })}
-                        </div>
-                    </div>
-                )}
-
-                {/* 상품 목록 */}
-                {products.length > 0 ? (
-                    // 이전에는 '상세보기' 버튼만 링크였다(이미지·상품명 클릭 무반응). 이제 카드 전체가 링크
-                    <ProductGrid>
-                        {products.map((product, index) => (
-                            // 모바일·데스크톱 첫 줄 카드는 바로 보이므로 지연 로딩하지 않는다
-                            <ProductCard key={product.id} product={product} eager={index < 4} swatches={swatches[product.id]} />
-                        ))}
-                    </ProductGrid>
+                {/* 분류가 바뀌면 key로 새로 그린다 → 이전 분류의 하위 분류 선택이 남지 않음 (브랜드 페이지와 같은 문제 예방) */}
+                {Number.isFinite(id) ? (
+                    <CategoryListing key={id} categoryId={id} />
                 ) : (
-                    <div className="text-center py-12">
-                        <div className="text-gray-400 text-6xl mb-4">📦</div>
-                        <h3 className="text-xl font-semibold text-gray-900 mb-2">상품이 없습니다</h3>
-                        <p className="text-gray-600">이 카테고리에는 아직 상품이 등록되지 않았습니다.</p>
-                    </div>
+                    <p className="text-center py-12 text-gray-600">카테고리를 찾을 수 없습니다.</p>
                 )}
             </div>
         </div>
@@ -230,4 +180,3 @@ const CategoryPage: React.FC = () => {
 }
 
 export default CategoryPage
-

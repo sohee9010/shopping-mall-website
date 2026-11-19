@@ -306,134 +306,8 @@ export const getCategoryById = async (categoryId: number): Promise<Category | nu
     }
 }
 
-// 카테고리별 상품 가져오기
-export const getProductsByLevel3Category = async (level3CategoryId: number): Promise<{products: Product[], categoryName: string}> => {
-    try {
-        console.log('Fetching products for level3 category ID:', level3CategoryId)
-        
-        // categories 테이블에서 레벨3 카테고리 정보 가져오기
-        const { data: level3Category, error: level3Error } = await supabase
-            .from('categories')
-            .select('*')
-            .eq('id', level3CategoryId)
-            .eq('level', 3)
-            .single()
-
-        if (level3Error) {
-            console.error('Error fetching level3 category:', level3Error)
-            throw level3Error
-        }
-
-        console.log('Found level3 category:', level3Category)
-
-        // products 테이블에서 해당 레벨3 카테고리 ID와 일치하는 상품들 가져오기
-        const { data: products, error: productsError } = await supabase
-            .from('products')
-            .select('*')
-            .eq('category_id', level3CategoryId)
-            .eq('status', 'forsale')
-            .order('created_at', { ascending: false })
-
-        if (productsError) {
-            console.error('Error fetching products by level3 category:', productsError)
-            throw productsError
-        }
-
-        console.log('Found products:', products)
-
-        return {
-            products: products?.map(product => ({
-                ...product,
-                image: product.image_urls?.[0] || '/placeholder-image.jpg'
-            })) || [],
-            categoryName: level3Category.name
-        }
-    } catch (error) {
-        console.error('Error in getProductsByLevel3Category:', error)
-        return {
-            products: [],
-            categoryName: '카테고리'
-        }
-    }
-}
-
-// 상위 카테고리의 모든 하위 카테고리 상품 가져오기
-export const getProductsByParentCategory = async (parentCategoryId: number): Promise<{products: Product[], categoryName: string, subcategories: any[]}> => {
-    try {
-        console.log('Fetching products for parent category ID:', parentCategoryId)
-        
-        // 부모 카테고리 정보 가져오기
-        const { data: parentCategory, error: parentError } = await supabase
-            .from('categories')
-            .select('*')
-            .eq('id', parentCategoryId)
-            .single()
-
-        if (parentError) {
-            console.error('Error fetching parent category:', parentError)
-            throw parentError
-        }
-
-        console.log('Found parent category:', parentCategory)
-
-        // 모든 하위 카테고리 ID들 가져오기 (재귀적으로)
-        const allSubcategoryIds = await getAllSubcategoryIds(parentCategoryId)
-        console.log('All subcategory IDs:', allSubcategoryIds)
-
-        // 모든 하위 카테고리의 상품들 가져오기
-        let products: any[] = []
-        if (allSubcategoryIds.length > 0) {
-            const { data: productsData, error: productsError } = await supabase
-                .from('products')
-                .select('*')
-                .in('category_id', allSubcategoryIds)
-                .eq('status', 'forsale')
-                .order('created_at', { ascending: false })
-
-            if (productsError) {
-                console.error('Error fetching products by parent category:', productsError)
-                throw productsError
-            }
-            
-            products = productsData || []
-            console.log('Found products:', products.length, 'products')
-        } else {
-            console.log('No subcategory IDs found, returning empty products array')
-        }
-
-        console.log('Found products:', products)
-
-        // 하위 카테고리 정보도 함께 가져오기
-        const { data: subcategories, error: subcategoriesError } = await supabase
-            .from('categories')
-            .select('*')
-            .eq('parent_id', parentCategoryId)
-            .order('name')
-
-        if (subcategoriesError) {
-            console.error('Error fetching subcategories:', subcategoriesError)
-        }
-
-        return {
-            products: products?.map(product => ({
-                ...product,
-                image: product.image_urls?.[0] || '/placeholder-image.jpg'
-            })) || [],
-            categoryName: parentCategory.name,
-            subcategories: subcategories || []
-        }
-    } catch (error) {
-        console.error('Error in getProductsByParentCategory:', error)
-        return {
-            products: [],
-            categoryName: '카테고리',
-            subcategories: []
-        }
-    }
-}
-
 // 층(1차 카테고리)별 인기 상품 (홈 큐레이션 섹션, D-2)
-// getProductsByParentCategory는 카테고리 정보·하위 목록까지 함께 조회해 홈에서 여러 번 부르기엔 무겁다.
+// 카테고리 페이지용 함수는 정보·하위 목록까지 함께 조회해 홈에서 여러 번 부르기엔 무겁다.
 // 하위 카테고리 id → 판매량 순 상위 N개만 가져온다
 export const getTopProductsInFloor = async (floorCategoryId: number, limit: number = 4): Promise<Product[]> => {
     const ids = await getAllSubcategoryIds(floorCategoryId)
@@ -531,4 +405,44 @@ export const getBrandProducts = async (brandId: number): Promise<Product[]> => {
         return []
     }
     return (data ?? []).map((product) => ({ ...product, image: product.image_urls?.[0] ?? '' }))
+}
+
+// ---------------------------------------------------------------------
+// 카테고리 상품 커서 페이지네이션 (3단계-4, 0017)
+// 이전: 하위 분류 상품을 전부 받아 화면에서 거름 + 분류별 개수를 분류 수만큼 RPC(N+1)
+// ---------------------------------------------------------------------
+export const CATEGORY_PAGE_SIZE = 12
+
+export interface CategoryCursor { created_at: string; id: number }
+export interface CategoryProductPage { products: Product[]; next: CategoryCursor | null }
+
+export const getCategoryProductPage = async (
+    categoryId: number,
+    cursor: CategoryCursor | null,
+): Promise<CategoryProductPage> => {
+    // 한 개 더 요청해서 다음 페이지가 있는지 안다 (전체 개수를 따로 세지 않음)
+    const { data, error } = await supabase.rpc('list_category_products', {
+        p_category_id: categoryId,
+        p_after_created: cursor?.created_at ?? null,
+        p_after_id: cursor?.id ?? null,
+        p_limit: CATEGORY_PAGE_SIZE + 1,
+    })
+    if (error) throw error
+
+    const rows = (data ?? []) as Product[]
+    const page = rows.slice(0, CATEGORY_PAGE_SIZE)
+    const last = page[page.length - 1]
+    return {
+        products: page.map((p) => ({ ...p, image: p.image_urls?.[0] || '/placeholder-image.jpg' })),
+        next: rows.length > CATEGORY_PAGE_SIZE && last ? { created_at: last.created_at, id: last.id } : null,
+    }
+}
+
+export interface CategoryCount { category_id: number; name: string; is_self: boolean; product_count: number }
+
+// 분류 자신(전체)과 바로 아래 분류별 판매중 상품 수 — 한 번의 요청
+export const getCategoryProductCounts = async (categoryId: number): Promise<CategoryCount[]> => {
+    const { data, error } = await supabase.rpc('category_product_counts', { p_category_id: categoryId })
+    if (error) throw error
+    return (data ?? []) as CategoryCount[]
 }
