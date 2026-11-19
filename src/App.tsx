@@ -25,6 +25,7 @@ import SearchPage from './pages/SearchPage'
 import CreditsPage from './pages/CreditsPage'
 
 import MyPage from './pages/MyPage'
+import ProfilePage from './pages/ProfilePage'
 import WishlistPage from './pages/WishlistPage'
 import CouponPage from './pages/CouponPage'
 // 문의 관련 페이지 import 추가
@@ -144,6 +145,7 @@ const AppContent: React.FC = () => {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/mypage" element={<MyPage />} />
+            <Route path="/mypage/profile" element={<ProfilePage />} />
             <Route path="/recent" element={<RecentViewPage />} />
             <Route path="/wishlist" element={<WishlistPage />} />
             {/* 주문·배송 조회는 마이페이지로 합침 (예전 링크 호환) */}

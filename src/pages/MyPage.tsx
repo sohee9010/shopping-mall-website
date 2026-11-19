@@ -6,13 +6,13 @@
 //   - 회원 등급: 화면에서 배송완료 금액으로 따로 계산하던 값 → DB에 저장된 등급(배송비 계산에 실제로 쓰는 값)
 //   - 동작하지 않던 표시 제거: P.Point·디머니·예치금·마이바우처·상품Q&A·상품평·이벤트(항상 0),
 //     실제로 제공하지 않는 등급 혜택(적립률·VIP 라운지 등) 안내
-//   - 회원정보 변경 창이 두 개 겹쳐 뜨고 DB에 저장되지 않던 문제 → UserInfoModal 하나(DB 저장)
+//   - 회원정보 변경 창이 두 개 겹쳐 뜨고 DB에 저장되지 않던 문제 → 별도 페이지(/mypage/profile, DB 저장)
+//   - 이동 경로·왼쪽 메뉴·제목 줄은 마이페이지 계열 공용 틀(MyPageLayout)
 //   - '주문·배송 조회' 화면(OrderTracking)과 중복되던 주문 목록을 이 화면 하나로 합침
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
-import Sidebar from '../components/Sidebar'
-import UserInfoModal from '../components/UserInfoModal'
+import MyPageLayout from '../components/mypage/MyPageLayout'
 import ReasonDialog, { type RequestKind } from '../components/mypage/ReasonDialog'
 import Dialog, { secondaryButton } from '../components/ui/Dialog'
 import { useCouponContext } from '../context/CouponContext'
@@ -48,8 +48,8 @@ const orderSummary = (o: Order) => `${o.items[0]?.name ?? '주문 상품'}${o.it
 
 const MyPage: React.FC = () => {
   const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const { currentUser } = useUser()
+  const [searchParams] = useSearchParams()
+  const { currentUser, authReady } = useUser()
   const { availableCoupons } = useCouponContext()
   const [orders, setOrders] = useState<Order[]>([])
   const [inquiryCount, setInquiryCount] = useState(0)
@@ -58,7 +58,6 @@ const MyPage: React.FC = () => {
   const [detail, setDetail] = useState<Order | null>(null)
   const [request, setRequest] = useState<{ kind: RequestKind; order: Order } | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
-  const [showUserInfo, setShowUserInfo] = useState(searchParams.get('modal') === 'userInfo')
 
   const loadOrders = useCallback(async () => {
     if (!currentUser) return
@@ -66,14 +65,11 @@ const MyPage: React.FC = () => {
   }, [currentUser])
 
   useEffect(() => {
-    if (!currentUser) {
-      navigate('/login')
-      return
-    }
+    if (!currentUser) return
     Promise.all([loadOrders(), getUserInquiries(currentUser.id).then((list) => setInquiryCount(list.length))])
       .catch((e) => console.error('마이페이지 데이터 로드 실패:', e))
       .finally(() => setLoading(false))
-  }, [currentUser, loadOrders, navigate])
+  }, [currentUser, loadOrders])
 
   const counts = useMemo(() => {
     const c = (statuses: string[]) => orders.filter((o) => statuses.includes(o.status)).length
@@ -87,11 +83,6 @@ const MyPage: React.FC = () => {
   }, [orders])
 
   const visible = filter === '전체' ? orders : orders.filter((o) => FILTER_STATUSES[filter].includes(o.status))
-
-  const closeUserInfo = () => {
-    setShowUserInfo(false)
-    if (searchParams.get('modal')) setSearchParams({}, { replace: true })
-  }
 
   const submitRequest = async (reason: string) => {
     if (!request?.order.id) return
@@ -121,67 +112,59 @@ const MyPage: React.FC = () => {
     navigate(`/inquiry?orderData=${encodeURIComponent(JSON.stringify(orderData))}`)
   }
 
-  if (!currentUser) return null
+  // 예전 링크(/mypage?modal=userInfo)는 회원정보 페이지로
+  if (searchParams.get('modal') === 'userInfo') return <Navigate to="/mypage/profile" replace />
+  if (!currentUser) return authReady ? <Navigate to="/login" replace /> : <MyPageLayout>{null}</MyPageLayout>
 
   const grade = currentUser.grade ?? 'FAMILY'
   const freeShipping = FREE_SHIPPING_GRADES.includes(grade)
 
+  const LINING = '[font-variant-numeric:lining-nums]' // 세리프 숫자 1이 I처럼 보이지 않게
+
+  const summary = (
+    <header className="border-b border-etage-ink pb-8 lg:flex lg:items-end lg:justify-between">
+      <div>
+        <p className="text-[11px] font-medium uppercase tracking-nav text-etage-muted">{grade} MEMBER</p>
+        <h1 className="mt-2 text-2xl font-light text-etage-ink lg:text-3xl">{currentUser.name}님</h1>
+        <p className="mt-2 text-sm text-etage-muted">
+          {freeShipping ? `${grade} 등급 혜택으로 모든 주문이 무료배송됩니다.` : '현재 등급은 주문마다 배송비 3,000원이 붙습니다.'}
+        </p>
+      </div>
+      <dl className="mt-6 grid grid-cols-3 divide-x divide-etage-line border-t border-etage-line lg:mt-0 lg:w-[360px] lg:border-t-0">
+        {[
+          { label: '쿠폰', value: `${availableCoupons.length}`, to: '/coupon' },
+          { label: '진행 중 주문', value: `${counts.active}`, onClick: () => setFilter('진행 중') },
+          { label: '1:1 문의', value: `${inquiryCount}`, to: '/inquiry-history' },
+        ].map((s) => {
+          const body = (
+            <>
+              <dt className="text-xs text-etage-muted">{s.label}</dt>
+              <dd className={`mt-1 font-display text-3xl text-etage-ink ${LINING}`}>{s.value}</dd>
+            </>
+          )
+          const cls = 'block w-full py-3 text-center transition-colors hover:bg-etage-canvas/60'
+          return (
+            <div key={s.label}>
+              {s.to ? (
+                <Link to={s.to} className={cls}>
+                  {body}
+                </Link>
+              ) : (
+                <button type="button" onClick={s.onClick} className={cls}>
+                  {body}
+                </button>
+              )}
+            </div>
+          )
+        })}
+      </dl>
+    </header>
+  )
+
   return (
-    <div className="bg-etage-paper">
-      <div className="mx-auto max-w-[1200px] px-4 pb-24 lg:px-10">
-        <nav aria-label="현재 위치" className="py-6 text-[11px] tracking-label text-etage-muted">
-          <Link to="/" className="hover:text-etage-ink">
-            HOME
-          </Link>
-          <span className="mx-1.5" aria-hidden="true">
-            /
-          </span>
-          <span className="text-etage-ink">MY PAGE</span>
-        </nav>
-
-        {/* 회원 요약 */}
-        <header className="border-b border-etage-ink pb-10 pt-4 lg:flex lg:items-end lg:justify-between">
-          <div>
-            <p className="text-[11px] font-medium uppercase tracking-nav text-etage-muted">{grade} MEMBER</p>
-            <h1 className="mt-3 text-3xl font-light text-etage-ink lg:text-5xl">{currentUser.name}님</h1>
-            <p className="mt-3 text-sm text-etage-muted">
-              {freeShipping ? `${grade} 등급 혜택으로 모든 주문이 무료배송됩니다.` : '현재 등급은 주문마다 배송비 3,000원이 붙습니다.'}
-            </p>
-          </div>
-          <dl className="mt-8 grid grid-cols-3 divide-x divide-etage-line border-t border-etage-line lg:mt-0 lg:border-t-0 lg:w-[420px] lg:border-y-0">
-            {[
-              { label: '쿠폰', value: `${availableCoupons.length}`, to: '/coupon' },
-              { label: '진행 중 주문', value: `${counts.active}`, onClick: () => setFilter('진행 중') },
-              { label: '1:1 문의', value: `${inquiryCount}`, to: '/inquiry-history' },
-            ].map((s) => {
-              const body = (
-                <>
-                  <dt className="text-xs text-etage-muted">{s.label}</dt>
-                  <dd className="mt-2 font-display text-3xl text-etage-ink">{s.value}</dd>
-                </>
-              )
-              const cls = 'block w-full py-4 text-center transition-colors hover:bg-etage-canvas/60'
-              return (
-                <div key={s.label}>
-                  {s.to ? (
-                    <Link to={s.to} className={cls}>
-                      {body}
-                    </Link>
-                  ) : (
-                    <button type="button" onClick={s.onClick} className={cls}>
-                      {body}
-                    </button>
-                  )}
-                </div>
-              )
-            })}
-          </dl>
-        </header>
-
-        <div className="mt-10 flex flex-col gap-10 lg:flex-row lg:gap-16">
-          <Sidebar onPersonalInfoClick={() => setShowUserInfo(true)} />
-
-          <main className="min-w-0 flex-1">
+    <>
+      <MyPageLayout header={summary}>
+        <div className="pt-10">
             {/* 주문 진행 현황 */}
             <section aria-labelledby="progress-title">
               <div className="flex items-baseline justify-between">
@@ -200,7 +183,7 @@ const MyPage: React.FC = () => {
                   <li key={step.label} className="relative border-b border-etage-line py-6 pr-4 sm:border-b-0">
                     <span className="text-[10px] tracking-label text-etage-muted">0{i + 1}</span>
                     <p className="mt-1 text-sm text-etage-ink">{step.label}</p>
-                    <p className={`mt-3 font-display text-4xl ${step.value ? 'text-etage-ink' : 'text-etage-line'}`}>{step.value}</p>
+                    <p className={`mt-3 font-display text-4xl ${LINING} ${step.value ? 'text-etage-ink' : 'text-etage-line'}`}>{step.value}</p>
                     {i < 2 && <ChevronRight className="absolute right-4 top-1/2 hidden h-4 w-4 text-etage-line sm:block" strokeWidth={1} />}
                   </li>
                 ))}
@@ -269,9 +252,8 @@ const MyPage: React.FC = () => {
                 </ul>
               )}
             </section>
-          </main>
         </div>
-      </div>
+      </MyPageLayout>
 
       <OrderDetailDialog
         order={detail}
@@ -284,8 +266,7 @@ const MyPage: React.FC = () => {
         onClose={() => setRequest(null)}
         onSubmit={submitRequest}
       />
-      <UserInfoModal isOpen={showUserInfo} user={currentUser} onClose={closeUserInfo} />
-    </div>
+    </>
   )
 }
 
