@@ -85,7 +85,7 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
     // 2) 실패하면 직전 상태로 되돌리고 알린다
     onError: (_error, change, context) => {
       if (context) queryClient.setQueryData(wishlistKey(userId), context.previous)
-      notify(change.type === 'add' ? '찜 목록 추가에 실패했습니다.' : '찜 목록 제거에 실패했습니다.')
+      notify(change.type === 'add' ? '찜을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.' : '찜을 해제하지 못했습니다. 잠시 후 다시 시도해 주세요.')
     },
     onSuccess: (_data, change) => {
       notify(change.type === 'add' ? '찜 목록에 추가되었습니다.' : '찜 목록에서 제거되었습니다.')
@@ -98,7 +98,10 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const addToWishlist = async (product: WishlistProduct) => {
     if (!userId) {
-      notify('로그인이 필요한 서비스입니다.')
+      // 찜은 계정(wishlists.user_id)에 저장하므로 로그인이 필요하다. 안내만 띄우던 것 → 로그인 후 보던 화면으로 돌아오게
+      notify('찜은 로그인 후 이용할 수 있어요.')
+      const back = window.location.hash.replace(/^#/, '') || '/'
+      window.location.hash = `#/login?redirect=${encodeURIComponent(back)}`
       return
     }
     await mutation.mutateAsync({ type: 'add', product }).catch(() => undefined)
