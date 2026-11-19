@@ -9,6 +9,7 @@
 -- P30: 앱 어디에서도 user_roles를 쓰지 않는다 (설계상 쓰기 정책 없음). 그래서 입점 신청 → 본사 승인이
 --      brand_admins.status만 바꾸고, 신청한 계정은 끝까지 '고객'으로 남아 입점사 기능을 쓸 수 없었다.
 --      → approve_brand(): 본사만, 상태 active + 신청 계정(브랜드 이메일과 같은 로그인 계정)에 입점사 역할 부여를 한 트랜잭션으로
+--        계약 중인 브랜드에 다시 실행하면 계정 연결만 한다 (본사가 먼저 등록하고 입점사가 나중에 가입한 경우)
 --        terminate_brand(): 계약 종료 + 판매 중 상품 숨김을 한 트랜잭션으로 (원본 화면은 두 번 나눠 쓰다 중간 실패 가능)
 -- =====================================================================
 
@@ -115,9 +116,7 @@ begin
   if not found then
     raise exception '입점사를 찾을 수 없습니다' using errcode = 'P0002';
   end if;
-  if v_brand.status = 'active' then
-    raise exception '이미 계약 중인 입점사입니다' using errcode = '22023';
-  end if;
+  -- 이미 계약 중이어도 다시 실행할 수 있다: 본사가 먼저 등록한 브랜드에 나중에 가입한 계정을 연결할 때
 
   -- 신청 계정 = 브랜드 이메일과 같은 로그인 계정
   select u.id into v_user_id from auth.users u where lower(u.email) = lower(v_brand.email);
