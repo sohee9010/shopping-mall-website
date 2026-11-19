@@ -260,6 +260,48 @@ export const getCategoriesHierarchy3Level = async (): Promise<any[]> => {
     }
 }
 
+// ---------------------------------------------------------------------
+// 검색어 → 카테고리 연결
+// 이전: 검색이 상품명·설명·브랜드만 봐서 '향수'를 입력해도 '오 드 퍼퓸' 상품이 안 나왔다(카테고리 이름이 '향수').
+// 카테고리 이름이 검색어를 포함하면 그 카테고리와 하위 카테고리 상품도 검색 결과·자동완성에 넣는다.
+// 카테고리는 45개뿐이라 한 번 받아 두고(모듈 캐시) 하위 분류는 화면에서 계산한다.
+// ---------------------------------------------------------------------
+type CategoryRow = { id: number; name: string; parent_id: number | null }
+let categoryCache: Promise<CategoryRow[]> | null = null
+const loadCategories = (): Promise<CategoryRow[]> => {
+    if (!categoryCache) {
+        categoryCache = Promise.resolve(supabase.from('categories').select('id, name, parent_id')).then(({ data, error }) => {
+            if (error) { categoryCache = null; return [] }   // 실패하면 다음 검색 때 다시 시도
+            return (data ?? []) as CategoryRow[]
+        })
+    }
+    return categoryCache
+}
+
+// 이름이 검색어를 포함하는 카테고리들과 그 하위 카테고리 번호 전부
+const matchCategories = async (query: string): Promise<{ ids: number[]; names: string[] }> => {
+    const q = query.trim().toLowerCase()
+    if (!q) return { ids: [], names: [] }
+    const cats = await loadCategories()
+    const hits = cats.filter((c) => c.name.toLowerCase().includes(q))
+    const ids = new Set(hits.map((c) => c.id))
+    let grew = true
+    while (grew) {                          // 하위 분류를 더 찾을 수 없을 때까지 펼친다 (최대 3단계)
+        grew = false
+        for (const c of cats) {
+            if (c.parent_id !== null && ids.has(c.parent_id) && !ids.has(c.id)) { ids.add(c.id); grew = true }
+        }
+    }
+    return { ids: [...ids], names: [...new Set(hits.map((c) => c.name))] }
+}
+
+// 상품명·설명·브랜드 + (카테고리 이름이 맞으면) 그 카테고리 상품 — .or() 필터 문자열
+const searchFilter = async (query: string): Promise<string> => {
+    const { ids } = await matchCategories(query)
+    const text = ilikeAnyOf(['name', 'description', 'brand'], query) // 검색어를 필터 문법이 아닌 값으로 취급 (P5)
+    return ids.length ? `${text},category_id.in.(${ids.join(',')})` : text
+}
+
 // 상품 검색 (기본)
 export const searchProducts = async (query: string): Promise<Product[]> => {
     try {
@@ -267,7 +309,7 @@ export const searchProducts = async (query: string): Promise<Product[]> => {
             .from('products')
             .select('*')
             .eq('status', 'forsale')
-            .or(ilikeAnyOf(['name', 'description', 'brand'], query)) // 검색어를 필터 문법이 아닌 값으로 취급 (P5)
+            .or(await searchFilter(query))
             .order('sales', { ascending: false })
 
         if (error) {
@@ -305,7 +347,7 @@ export const advancedSearchProducts = async (
 
         // 검색어가 있는 경우
         if (query && query.trim()) {
-            queryBuilder = queryBuilder.or(ilikeAnyOf(['name', 'description', 'brand'], query)) // 검색어를 필터 문법이 아닌 값으로 취급 (P5)
+            queryBuilder = queryBuilder.or(await searchFilter(query))
         }
 
         // 카테고리 필터
@@ -377,7 +419,17 @@ export const getSearchSuggestions = async (query: string, limit: number = 10): P
             return []
         }
 
-        const suggestions = new Set<string>()
+        // 카테고리 이름이 맞으면 카테고리 이름과 그 카테고리 인기 상품도 제안 ('향수' → 향수, NOCTURNE ... 오 드 퍼퓸)
+        const cat = await matchCategories(query)
+        let categoryProducts: { name: string }[] = []
+        if (cat.ids.length) {
+            const { data } = await supabase.from('products').select('name').eq('status', 'forsale')
+                .in('category_id', cat.ids).order('sales', { ascending: false }).limit(limit)
+            categoryProducts = data ?? []
+        }
+
+        const suggestions = new Set<string>(cat.names)
+        categoryProducts.forEach((item) => suggestions.add(item.name))
         
         // 상품명 추가
         nameResults?.forEach(item => {
@@ -442,7 +494,7 @@ export const getSearchResultCount = async (query: string, filters: any = {}): Pr
             .eq('status', 'forsale')
 
         if (query && query.trim()) {
-            queryBuilder = queryBuilder.or(ilikeAnyOf(['name', 'description', 'brand'], query)) // 검색어를 필터 문법이 아닌 값으로 취급 (P5)
+            queryBuilder = queryBuilder.or(await searchFilter(query))
         }
 
         if (filters.categoryId) {
