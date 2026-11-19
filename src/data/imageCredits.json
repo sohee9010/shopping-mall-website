@@ -773,6 +773,7 @@
     "authorUrl": "https://unsplash.com/@katsiajazwinska?utm_source=etage_portfolio&utm_medium=referral",
     "photoUrl": "https://unsplash.com/photos/a-stack-of-folded-towels-with-a-plant-on-top-ckzwCSStEUU?utm_source=etage_portfolio&utm_medium=referral",
     "usedFor": [
+      "LUNELLE 캐시미어 라운드넥 니트",
       "LUNELLE 케이블 니트 카디건"
     ]
   },
@@ -1071,6 +1072,51 @@
     "photoUrl": "https://unsplash.com/photos/young-woman-in-a-black-dress-standing-against-wood-paneling-FplK_1Z7798?utm_source=etage_portfolio&utm_medium=referral",
     "usedFor": [
       "배너: brand-lunelle-hero"
+    ]
+  },
+  {
+    "id": "Vj6PZFCxhec",
+    "author": "Valentina Schick",
+    "authorUrl": "https://unsplash.com/@valentinaschick?utm_source=etage_portfolio&utm_medium=referral",
+    "photoUrl": "https://unsplash.com/photos/a-woman-wearing-a-white-coat-and-white-pants-Vj6PZFCxhec?utm_source=etage_portfolio&utm_medium=referral",
+    "usedFor": [
+      "LUNELLE 핸드메이드 울 하프 코트"
+    ]
+  },
+  {
+    "id": "kPujrhMd670",
+    "author": "Lalalaa Oni",
+    "authorUrl": "https://unsplash.com/@emlalala?utm_source=etage_portfolio&utm_medium=referral",
+    "photoUrl": "https://unsplash.com/photos/a-woman-with-long-black-hair-wearing-a-pink-jacket-kPujrhMd670?utm_source=etage_portfolio&utm_medium=referral",
+    "usedFor": [
+      "LUNELLE 크롭 트위드 재킷"
+    ]
+  },
+  {
+    "id": "Esb3i_spQfU",
+    "author": "Peter Kokhanets",
+    "authorUrl": "https://unsplash.com/@prostopetro?utm_source=etage_portfolio&utm_medium=referral",
+    "photoUrl": "https://unsplash.com/photos/a-woman-in-a-white-dress-holding-a-beige-purse-Esb3i_spQfU?utm_source=etage_portfolio&utm_medium=referral",
+    "usedFor": [
+      "LUNELLE 테일러드 울 재킷"
+    ]
+  },
+  {
+    "id": "2ORMMNE5q34",
+    "author": "mbali mabaso",
+    "authorUrl": "https://unsplash.com/@mbali21?utm_source=etage_portfolio&utm_medium=referral",
+    "photoUrl": "https://unsplash.com/photos/white-wedding-dress-hanging-on-a-dark-four-poster-bed-2ORMMNE5q34?utm_source=etage_portfolio&utm_medium=referral",
+    "usedFor": [
+      "SABLE & CO. 랩 미디 원피스"
+    ]
+  },
+  {
+    "id": "8ghsT83l0_I",
+    "author": "Laura Chouette",
+    "authorUrl": "https://unsplash.com/@laurachouette?utm_source=etage_portfolio&utm_medium=referral",
+    "photoUrl": "https://unsplash.com/photos/brown-leather-perfume-bottle-on-white-textile-8ghsT83l0_I?utm_source=etage_portfolio&utm_medium=referral",
+    "usedFor": [
+      "SABLE & CO. 새틴 미디 스커트"
     ]
   }
 ]
