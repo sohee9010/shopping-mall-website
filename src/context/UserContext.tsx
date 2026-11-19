@@ -13,6 +13,8 @@ export interface User {
 
 interface UserContextType {
   currentUser: User | null
+  /** 첫 로그인 상태 확인이 끝났는지. false인 동안 currentUser가 null이어도 '로그인 안 됨'이 아니다 */
+  authReady: boolean
   setCurrentUser: (user: User | null) => void
   refreshUser: () => Promise<void>
   logout: () => Promise<void>
@@ -34,6 +36,9 @@ interface UserProviderProps {
 
 export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null)
+  // 새로고침 직후에는 저장된 로그인 세션을 서버에서 확인하는 동안 currentUser가 null이다.
+  // 이 구간을 '로그인 안 됨'으로 보면 로그인한 사용자도 로그인 화면으로 튕긴다 → 확인이 끝났는지를 따로 둔다
+  const [authReady, setAuthReady] = useState(false)
 
   // 사용자 정보 새로고침 (DB에서만 가져오기)
   const refreshUser = async () => {
@@ -65,11 +70,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
   // 초기 사용자 정보 로드
   useEffect(() => {
-    refreshUser()
+    refreshUser().finally(() => setAuthReady(true))
   }, [])
 
   return (
-    <UserContext.Provider value={{ currentUser, setCurrentUser, refreshUser, logout }}>
+    <UserContext.Provider value={{ currentUser, authReady, setCurrentUser, refreshUser, logout }}>
       {children}
     </UserContext.Provider>
   )
