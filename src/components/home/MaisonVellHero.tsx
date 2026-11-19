@@ -10,7 +10,7 @@ import './maison-vell.css'
 // 2. 깊이별 위치·크기·흐림·투명도는 공식이 아니라 7칸 표(-1~5)에서 선형 보간
 // 3. 모델 6명·상품 12개는 이미지 2장(스프라이트 시트)을 SVG viewBox로 잘라 보여 준다
 // 4. 모델은 한 번만 크기를 잡고 transform만 바꿔 선명도를 유지, 흐림은 배율로 나눠 화면상 같은 정도로
-// 5. 자동 넘김: 1초 머문 뒤 천천히 다음 룩으로 (조작하면 3초 쉼)
+// 5. 자동 넘김: 1초 머문 뒤 2.4초에 걸쳐 천천히 다음 룩으로 (조작하면 3초 쉼)
 // 6. 끄는 동안은 손가락을 그대로 따라가고, 놓으면 가장 가까운 룩으로 맞춘다. p는 목표를 지수 감쇠로 따라감
 // 7. 상품 열은 12장이 한 바퀴로 이어져 끝없이 넘어간다
 //
@@ -43,12 +43,13 @@ const KH = [1.18, .832, .574, .436, .334, .258, .19]
 const KB = [0, 0, 1.5, 4, 8, 12, 17]
 const KO = [1, 1, 1, 1, .86, .5, 0]
 const N = LOOKS.length
-// 자동 넘김: 멈춘 상태로 1초 머문 뒤 다음 룩으로. 손으로 넘길 때(.0072)보다 느린 감쇠로 천천히 이동
-// 사용자가 끌기·휠·방향키로 조작하면 3초간 자동 넘김을 쉬어 손과 부딪히지 않게 한다
+// 자동 넘김: 멈춘 상태로 1초 머문 뒤, 2.4초 동안 천천히 출발해 천천히 멈추며(ease-in-out) 다음 룩으로
+// - 손으로 넘길 때의 지수 감쇠는 출발이 가장 빨라서, 느리게 하려고 숫자만 줄여도 시작이 휙 지나가 보였다
+// 사용자가 끌기·휠·방향키로 조작하면 자동 이동을 바로 멈추고 3초간 쉬어 손과 부딪히지 않게 한다
 const AUTO_DWELL_MS = 1000
-const AUTO_RATE = .0024
-const HAND_RATE = .0072
+const AUTO_MOVE_MS = 2400
 const AUTO_RESUME_MS = 3000
+const easeInOut = (t: number) => (t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
 
 const wrap = (x: number, n: number) => ((x % n) + n) % n
 const clamp = (x: number, a: number, b: number) => Math.min(b, Math.max(a, x))
@@ -116,18 +117,23 @@ const MaisonVellHero: React.FC = () => {
         let mx = 0, my = 0, cx = 0, cy = 0, down = false, sx = 0, st = 0, moved = 0
         let wheelT: ReturnType<typeof setTimeout> | undefined
         let raf = 0
-        let rate = HAND_RATE, settledAt = 0, holdUntil = 0
-        const handOn = () => { rate = HAND_RATE; holdUntil = performance.now() + AUTO_RESUME_MS }
+        let settledAt = 0, holdUntil = 0
+        let auto: { from: number; start: number } | null = null // 자동 이동 중이면 출발 위치·시각
+        const handOn = () => { auto = null; holdUntil = performance.now() + AUTO_RESUME_MS }
         const frame = (now: number) => {
             const dt = Math.min(50, now - last) || 16; last = now
             const was = p
-            if (calm) p = target; else p += (target - p) * (1 - Math.exp(-dt * rate))
+            if (calm) p = target
+            else if (auto) {
+                const t = Math.min(1, (now - auto.start) / AUTO_MOVE_MS)
+                p = auto.from + (target - auto.from) * easeInOut(t)
+                if (t === 1) auto = null
+            } else p += (target - p) * (1 - Math.exp(-dt * .0072))
             if (Math.abs(target - p) < .0004) p = target
-            // 자동 넘김 ('움직임 줄이기' 설정이면 하지 않음)
-            // 눈에 띄는 움직임이 끝난 시점(남은 거리 0.01 미만)부터 1초를 센다 — 정확히 멈출 때까지 기다리면 꼬리가 길어 2초 넘게 멈춰 보임
-            if (!calm && !down && Math.abs(target - p) < .01) {
+            // 멈춘 뒤 1초 머물면 다음 룩으로 ('움직임 줄이기' 설정이면 하지 않음)
+            if (!calm && !down && !auto && p === target) {
                 if (!settledAt) settledAt = now
-                if (now - settledAt >= AUTO_DWELL_MS && now >= holdUntil) { rate = AUTO_RATE; target = Math.round(target) + 1; settledAt = 0 }
+                if (now - settledAt >= AUTO_DWELL_MS && now >= holdUntil) { auto = { from: p, start: now }; target = Math.round(target) + 1; settledAt = 0 }
             } else settledAt = 0
             if (p !== was || dirty) { dirty = false; paint() }
             cx += (mx - cx) * .32; cy += (my - cy) * .32

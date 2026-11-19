@@ -4,6 +4,8 @@
   --u: min(calc(100vw / 1600), calc(100vh / 900));
   --ink: #16191f; --mid: #737b86; --dim: #a4adb8;
   position: relative;
+  /* 모델 z-index(최대 110)가 히어로 밖 헤더(z-50) 펼침 메뉴 위로 올라오던 버그 → 쌓임 순서를 히어로 안으로 가둔다 */
+  isolation: isolate;
   height: calc(100svh - var(--mv-top, 0px));
   min-height: 520px;
   display: grid;
