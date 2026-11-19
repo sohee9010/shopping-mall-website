@@ -115,3 +115,8 @@ export const SWATCH_COLORS: Record<string, string> = {
 }
 // 스와치로 보여 줄 옵션 축 이름 (사이즈·용량은 색이 아니므로 제외)
 export const SWATCH_OPTION_NAMES = ['색상', '호수']
+
+// 홈 메인 히어로 선택 (2026-11-19 시안 비교용)
+// 'kairn' = 가상 고글 브랜드 KAIRN 캠페인 히어로(사용자 제공 프롬프트), 'etage' = 기존 ÉTAGE 기획전 슬라이드(D-2)
+// 마음에 들지 않으면 'etage'로 바꾸면 그대로 돌아간다
+export const HOME_HERO: 'kairn' | 'etage' = 'kairn'
