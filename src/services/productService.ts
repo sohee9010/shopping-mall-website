@@ -372,6 +372,7 @@ export const advancedSearchProducts = async (
         const sortBy = filters.sortBy || 'sales'
         const sortOrder = filters.sortOrder || 'desc'
         queryBuilder = queryBuilder.order(sortBy, { ascending: sortOrder === 'asc' })
+            .order('id', { ascending: false }) // 값이 같으면(등록 시각·판매량 동일) 순서가 요청마다 바뀌지 않게 번호로 고정
 
         const { data, error } = await queryBuilder
 
