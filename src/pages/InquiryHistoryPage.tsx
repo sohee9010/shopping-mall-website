@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import Sidebar from '../components/Sidebar'
 import { FileText, Plus, Search } from 'lucide-react'
 import Icon from '../components/Icon'
 import { useUser } from '../context/UserContext'
@@ -152,90 +153,11 @@ const InquiryHistoryPage: React.FC = () => {
           <span className="text-gray-600">1:1 문의내역</span>
         </div>
 
-        <div className="flex gap-8 items-start w-full">
-          {/* 사이드바 */}
-          <div className="bg-white rounded-lg p-8 h-fit shadow-lg w-64 flex-shrink-0 relative z-10">
-            <div className="mb-8 pb-5 border-b-2 border-gray-800">
-              <h3 className="text-2xl font-bold text-gray-800 m-0">마이룸</h3>
-              <p className="text-sm text-gray-600 m-0">MY ROOM</p>
-            </div>
-            
-            <nav>
-              <div className="mb-8">
-                <h4 className="text-base font-semibold text-gray-800 m-0 mb-4">주문현황</h4>
-                <ul className="list-none p-0 m-0">
-                  <li className="mb-1">
-                    <Link
-                      to="/order-tracking"
-                      className="text-sm text-gray-600 py-3 px-4 block transition-all duration-300 rounded-md hover:text-gray-800 hover:bg-gray-50"
-                    >
-                      주문확인/배송조회
-                    </Link>
-                  </li>
-                </ul>
-              </div>
+        <div className="flex w-full flex-col items-start gap-8 lg:flex-row">
+          {/* 사이드바 (마이페이지 공용 메뉴) */}
+          <Sidebar />
 
-              <div className="mb-8">
-                <h4 className="text-base font-semibold text-gray-800 m-0 mb-4">쇼핑통장</h4>
-                <ul className="list-none p-0 m-0">
-                  <li className="mb-1">
-                    <Link
-                      to="/coupons"
-                      className="text-sm text-gray-600 py-3 px-4 block transition-all duration-300 rounded-md hover:text-gray-800 hover:bg-gray-50"
-                    >
-                      쿠폰
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="mb-8">
-                <h4 className="text-base font-semibold text-gray-800 m-0 mb-4">쇼핑백</h4>
-                <ul className="list-none p-0 m-0">
-                  <li className="mb-1">
-                    <Link
-                      to="/wishlist"
-                      className="text-sm text-gray-600 py-3 px-4 block transition-all duration-300 rounded-md hover:text-gray-800 hover:bg-gray-50"
-                    >
-                      찜
-                    </Link>
-                  </li>
-                  <li className="mb-1">
-                    <Link
-                      to="/recent"
-                      className="text-sm text-gray-600 py-3 px-4 block transition-all duration-300 rounded-md hover:text-gray-800 hover:bg-gray-50"
-                    >
-                      최근 본 상품
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="mb-8">
-                <h4 className="text-base font-semibold text-gray-800 m-0 mb-4">나의 정보</h4>
-                <ul className="list-none p-0 m-0">
-                                     <li className="mb-1">
-                      <Link
-                        to="/mypage?modal=userInfo"
-                        className="text-sm text-gray-600 py-3 px-4 block transition-all duration-300 rounded-md hover:text-gray-800 hover:bg-gray-50"
-                      >
-                        회원정보변경
-                      </Link>
-                    </li>
-                   <li className="mb-1">
-                     <Link
-                       to="/inquiry-history"
-                       className="text-sm text-gray-800 bg-gray-100 font-medium py-3 px-4 block transition-all duration-300 rounded-md"
-                     >
-                       1:1 문의내역
-                     </Link>
-                   </li>
-                 </ul>
-               </div>
-             </nav>
-           </div>
-
-           {/* 메인 콘텐츠 */}
+          {/* 메인 콘텐츠 */}
            <div className="flex-1 bg-white rounded-lg p-8 shadow-lg min-h-[500px]">
              <div className="flex justify-between items-center mb-6">
                <h1 className="text-3xl font-bold text-gray-800 m-0">1:1 문의내역</h1>

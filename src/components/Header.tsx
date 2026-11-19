@@ -408,7 +408,7 @@ const Header: React.FC = () => {
               {currentUser ? (
                 <>
                   <li><Link to="/mypage">마이페이지</Link></li>
-                  <li><Link to="/order-tracking">주문·배송 조회</Link></li>
+                  <li><Link to="/mypage">주문·배송 조회</Link></li>
                   <li><Link to="/wishlist">찜</Link></li>
                   <li><button type="button" onClick={handleLogout}>로그아웃</button></li>
                 </>
