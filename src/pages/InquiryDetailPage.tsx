@@ -27,7 +27,7 @@ interface Inquiry {
 const InquiryDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { currentUser } = useUser()
+  const { currentUser, authReady } = useUser()
   const [inquiry, setInquiry] = useState<Inquiry | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -74,14 +74,14 @@ const InquiryDetailPage: React.FC = () => {
         } finally {
           setLoading(false)
         }
-      } else if (!currentUser) {
+      } else if (authReady && !currentUser) {
         alert('로그인이 필요합니다.')
         navigate('/login')
       }
     }
 
     loadInquiry()
-  }, [id, currentUser, navigate])
+  }, [id, currentUser, authReady, navigate])
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('ko-KR', {
