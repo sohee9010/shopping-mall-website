@@ -231,3 +231,86 @@ grant  execute on function public.reject_order_request(text) to authenticated;
 
 revoke execute on function public.complete_refund(text, text, jsonb) from public, anon, authenticated;
 grant  execute on function public.complete_refund(text, text, jsonb) to service_role;
+
+
+-- ---------------------------------------------------------------------
+-- 7. 입점사 주문 조회에 반품 사유·'다른 브랜드 상품 줄 수' 추가
+--    섞인 주문의 취소·반품은 본사가 결정하므로, 화면이 버튼 대신 '본사 처리'를 안내할 수 있게 한다.
+--    다른 브랜드 상품의 내용은 여전히 보내지 않는다(개수만, P19 원칙 유지).
+--    반환 열이 바뀌므로 drop 후 다시 만든다 (열 추가라 기존 화면은 그대로 동작)
+-- ---------------------------------------------------------------------
+drop function public.merchant_orders();
+drop function private.merchant_orders_impl();
+
+create function private.merchant_orders_impl()
+returns table (
+  id                text,
+  user_id           uuid,
+  customer_name     text,
+  order_date        timestamptz,
+  created_at        timestamptz,
+  status            text,
+  payment_method    text,
+  shipping_address  text,
+  recipient_name    text,
+  recipient_phone   text,
+  cancel_reason     text,
+  return_reason     text,
+  total_amount      integer,
+  other_brand_lines integer,
+  items             jsonb
+)
+language plpgsql stable security definer set search_path = ''
+as $$
+declare
+  v_brand_id bigint := private.my_brand_id();
+begin
+  if v_brand_id is null then
+    raise exception '입점사 관리자만 조회할 수 있습니다 (계약 중인 브랜드만)' using errcode = '42501';
+  end if;
+  return query
+    select o.id, o.user_id, u.name, o.order_date, o.created_at, o.status, o.payment_method,
+           o.shipping_address, o.recipient_name, o.recipient_phone, o.cancel_reason, o.return_reason,
+           sum(oi.unit_price * oi.quantity)::integer,
+           (select count(*)::integer from public.order_items x where x.order_id = o.id and x.brand_id <> v_brand_id),
+           jsonb_agg(jsonb_build_object(
+             'line_id',          oi.id,
+             'product_id',       oi.product_id,
+             'variant_id',       oi.variant_id,
+             'sku',              oi.sku,
+             'name',             oi.product_name,
+             'brand',            oi.brand,
+             'brand_id',         oi.brand_id,
+             'option_text',      oi.option_text,
+             'price',            oi.unit_price,
+             'quantity',         oi.quantity,
+             'image',            coalesce(oi.image_url, ''),
+             'status',           oi.status,
+             'tracking_company', oi.tracking_company,
+             'tracking_number',  oi.tracking_number,
+             'shipped_at',       oi.shipped_at
+           ) order by oi.id)
+      from public.orders o
+      join public.order_items oi on oi.order_id = o.id and oi.brand_id = v_brand_id
+      left join public.users u on u.id = o.user_id
+     where o.status not in ('결제대기', '결제실패', '결제취소')
+     group by o.id, u.name
+     order by o.created_at desc;
+end;
+$$;
+
+create function public.merchant_orders()
+returns table (
+  id text, user_id uuid, customer_name text, order_date timestamptz, created_at timestamptz,
+  status text, payment_method text, shipping_address text, recipient_name text, recipient_phone text,
+  cancel_reason text, return_reason text, total_amount integer, other_brand_lines integer, items jsonb
+)
+language sql stable security invoker set search_path = ''
+as $$
+  select * from private.merchant_orders_impl();
+$$;
+
+revoke execute on function private.merchant_orders_impl() from public, anon;
+grant  execute on function private.merchant_orders_impl() to authenticated;
+revoke execute on function public.merchant_orders()       from public, anon;
+grant  execute on function public.merchant_orders()       to authenticated;
