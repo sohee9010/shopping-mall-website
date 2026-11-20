@@ -31,6 +31,8 @@ select p.id, x.opt, array[x.url]::text[]
     ('GREYMONT 원턱 와이드 슬랙스',       '크림',     '/shopping-mall-website/products/31-cream.webp')
   ) as x(name, opt, url)
   join public.products p on p.name = x.name
+ -- 그 색 옵션이 있는 상품에만 등록 (클라우드는 시드 순서 차이로 상품별 색상이 로컬과 다르다 → 없는 색은 건너뜀)
+ where exists (select 1 from public.product_variants v where v.product_id = p.id and v.option1 = x.opt)
 on conflict (product_id, option_value) do update set image_urls = excluded.image_urls, updated_at = now();
 
 -- ---------------------------------------------------------------------
@@ -62,4 +64,6 @@ select p.id, x.opt, array[x.url]::text[]
     ('ORBE 진주 드롭 이어링',           '옐로골드', '/shopping-mall-website/products/43-yellowgold.webp')
   ) as x(name, opt, url)
   join public.products p on p.name = x.name
+ -- 그 색 옵션이 있는 상품에만 등록 (클라우드는 시드 순서 차이로 상품별 색상이 로컬과 다르다 → 없는 색은 건너뜀)
+ where exists (select 1 from public.product_variants v where v.product_id = p.id and v.option1 = x.opt)
 on conflict (product_id, option_value) do update set image_urls = excluded.image_urls, updated_at = now();
