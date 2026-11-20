@@ -29,3 +29,6 @@ dist-ssr
 .env.production.local
 .env.development.local
 .env.test.local
+
+# AI 생성 원본 PNG (용량 큼). 사이트에는 public/products/*.webp만 쓴다
+scripts/images/generated-src/
